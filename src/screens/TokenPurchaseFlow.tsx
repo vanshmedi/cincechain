@@ -11,6 +11,7 @@ interface TokenPurchaseFlowProps {
   onClose: () => void;
   onConfirm: (price: number) => void;
   cineCredits: number;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 export function TokenPurchaseFlow({
@@ -20,6 +21,7 @@ export function TokenPurchaseFlow({
   onClose,
   onConfirm,
   cineCredits,
+  setView,
 }: TokenPurchaseFlowProps) {
   const film = films.find((f) => f.id === filmId) || films[0];
   const [step, setStep] = useState<"confirm" | "processing" | "done">("confirm");
@@ -161,7 +163,7 @@ export function TokenPurchaseFlow({
               </div>
             </div>
 
-            <Button className="w-full" size="lg" onClick={onClose}>
+            <Button className="w-full" size="lg" onClick={() => { setView('vault'); onClose(); }}>
               View in Vault
             </Button>
           </div>

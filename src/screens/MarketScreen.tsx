@@ -6,10 +6,11 @@ import { ArrowUpRight, TrendingUp, Wallet, ShieldCheck, RefreshCw } from "lucide
 
 interface MarketScreenProps {
   cineCredits: number;
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  selectedMarketItem?: number | null;
 }
 
-export function MarketScreen({ cineCredits, setView }: MarketScreenProps) {
+export function MarketScreen({ cineCredits, setView, selectedMarketItem }: MarketScreenProps) {
   const [filter, setFilter] = useState<"All" | "Rental" | "Ownership" | "Collector">("All");
 
   const filtered = filter === "All"
@@ -68,6 +69,21 @@ export function MarketScreen({ cineCredits, setView }: MarketScreenProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {selectedMarketItem && (
+          <div className="bg-primary/10 border border-primary p-6 mb-10 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-headline font-bold uppercase tracking-tight text-primary">Pending Listing</h2>
+              <p className="font-body text-sm text-on-surface-variant">You are about to list Vault Token #{selectedMarketItem}</p>
+            </div>
+            <Button onClick={() => {
+              alert('Token successfully listed on the secondary market!');
+              setView('vault');
+            }}>
+              Confirm Listing
+            </Button>
+          </div>
+        )}
+
         {/* Filter tabs */}
         <div className="flex items-center justify-between mb-10 border-b-2 border-on-surface pb-4">
           <div className="flex space-x-6 overflow-x-auto">

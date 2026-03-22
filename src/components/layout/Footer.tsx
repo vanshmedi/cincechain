@@ -87,8 +87,8 @@ export function Footer({ setView }: FooterProps) {
             &copy; {new Date().getFullYear()} CineChain Collective. All rights reserved. 1 CC = $0.10 · Protocol Fee 5%
           </p>
           <div className="flex space-x-6 font-label text-xs uppercase tracking-widest text-outline-variant">
-            <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-primary transition-colors">Terms</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-primary transition-colors">Privacy</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-primary transition-colors">Terms</a>
           </div>
         </div>
       </div>

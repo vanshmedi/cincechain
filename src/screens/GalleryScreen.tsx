@@ -5,7 +5,7 @@ import { PlayCircle, RefreshCw, Filter, Star, Award } from "lucide-react";
 import { films } from "../data/mockData";
 
 interface GalleryScreenProps {
-  setView: (view: string, filmId?: number) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 type FilterType = "All" | "Now Minting" | "Funded" | "Released" | "Sci-Fi" | "Drama" | "Documentary";
@@ -119,7 +119,7 @@ export function GalleryScreen({ setView }: GalleryScreenProps) {
               </button>
             ))}
           </div>
-          <button className="hidden md:flex items-center font-label text-sm uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors">
+          <button className="hidden md:flex items-center font-label text-sm uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors" onClick={(e) => { e.preventDefault(); alert('Global search and advanced filtering indexing is currently in progress.'); }}>
             <Filter className="h-4 w-4 mr-2" />
             Filters
           </button>
@@ -182,7 +182,7 @@ export function GalleryScreen({ setView }: GalleryScreenProps) {
           )}
 
           <div className="mt-20 text-center">
-            <Button variant="outline" size="lg" className="group">
+            <Button variant="outline" size="lg" className="group" onClick={(e) => { e.preventDefault(); alert('Global search and advanced filtering indexing is currently in progress.'); }}>
               <RefreshCw className="mr-2 h-5 w-5 group-hover:rotate-180 transition-transform duration-500" />
               Load More
             </Button>

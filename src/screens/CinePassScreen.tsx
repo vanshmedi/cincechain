@@ -6,10 +6,11 @@ import { CheckCircle2, Wallet } from "lucide-react";
 
 interface CinePassScreenProps {
   cineCredits: number;
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  onSubscribe?: (tier: string, bonus: number) => void;
 }
 
-export function CinePassScreen({ cineCredits, setView }: CinePassScreenProps) {
+export function CinePassScreen({ cineCredits, setView, onSubscribe }: CinePassScreenProps) {
   const [activePlan, setActivePlan] = useState<string | null>(null);
 
   return (
@@ -177,9 +178,19 @@ export function CinePassScreen({ cineCredits, setView }: CinePassScreenProps) {
                   Subscribe to {cinePasses.find((p) => p.id === activePlan)?.name}
                 </p>
                 <p className="font-body text-on-surface-variant mb-6">
-                  {cinePasses.find((p) => p.id === activePlan)?.priceCC} CC will be deducted monthly from your wallet.
+                  {cinePasses.find((p) => p.id === activePlan)?.priceCC} CC will be added to your wallet (simulated fiat purchase).
                 </p>
-                <Button size="lg">Confirm Subscription</Button>
+                <Button 
+                  size="lg" 
+                  onClick={() => {
+                    const pass = cinePasses.find(p => p.id === activePlan);
+                    if (onSubscribe && pass) {
+                      onSubscribe(pass.id, pass.priceCC);
+                    }
+                  }}
+                >
+                  Confirm Subscription
+                </Button>
               </div>
             </div>
           )}

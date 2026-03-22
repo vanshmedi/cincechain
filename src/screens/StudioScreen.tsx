@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import {
@@ -16,7 +16,7 @@ import {
 import { films } from "../data/mockData";
 
 interface StudioScreenProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 type StudioTab = "overview" | "projects" | "assets" | "team" | "analytics";
@@ -42,7 +42,14 @@ export function StudioScreen({ setView }: StudioScreenProps) {
   };
 
   return (
-    <div className="w-full pt-16 bg-surface min-h-screen flex flex-col md:flex-row">
+    <div className="w-full pt-16 bg-surface min-h-screen flex flex-col md:flex-row relative">
+      <button
+        onClick={() => setView('landing')}
+        className="fixed top-4 left-4 z-50 flex items-center bg-surface-container-lowest border border-outline-variant px-4 py-2 font-label text-xs uppercase tracking-widest font-bold text-on-surface hover:text-primary hover:border-primary transition-all shadow-sm"
+      >
+        ⬅ Back to Platform
+      </button>
+
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-surface-container-lowest border-r border-outline-variant/30 hidden md:flex flex-col h-[calc(100vh-4rem)] sticky top-16">
         <div className="p-6 border-b border-outline-variant/30">

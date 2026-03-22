@@ -1,10 +1,12 @@
 import { useState } from "react";
+import React from "react";
+import { uploadFilm } from "../lib/auth";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { Upload, Camera, Info, Plus, Minus } from "lucide-react";
 
 interface SubmitScreenProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 interface RecipientSplit {
@@ -58,8 +60,16 @@ export function SubmitScreen({ setView }: SubmitScreenProps) {
 
   const handleRegister = async () => {
     setStep("minting");
-    await new Promise((r) => setTimeout(r, 2000));
-    setStep("done");
+    try {
+      await uploadFilm({
+        title,
+        description: synopsis,
+      });
+      setView("studio");
+    } catch (e) {
+      console.error(e);
+      setStep("done");
+    }
   };
 
   if (step === "review") {

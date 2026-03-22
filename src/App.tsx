@@ -3,11 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import { GrainOverlay } from "./components/ui/GrainOverlay";
 import { WalletConnectModal } from "./components/ui/WalletConnectModal";
+import type { DbUser } from "./lib/supabase";
+import { 
+  loginWithWallet, 
+  loadWalletFromStorage, 
+  clearWalletFromStorage,
+  purchaseFilmToken,
+  subscribeToCinePass
+} from "./lib/auth";
 import { LandingScreen } from "./screens/LandingScreen";
 import { GalleryScreen } from "./screens/GalleryScreen";
 import { VaultScreen } from "./screens/VaultScreen";
@@ -27,16 +35,37 @@ export default function App() {
   const [currentView, setCurrentView] = useState("landing");
   const [selectedFilmId, setSelectedFilmId] = useState<number>(1);
   const [selectedCuratorHandle, setSelectedCuratorHandle] = useState<string>("CineVault Curator");
+  const [selectedMarketItem, setSelectedMarketItem] = useState<number | null>(null);
 
-  // Wallet / auth state
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  // ── Auth state: full Supabase user row (null = logged out) ──────────────
+  const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [isRehydrating, setIsRehydrating] = useState(true);
 
-  // CineCredit balance (starts at 2500 CC on connect)
-  const [cineCredits, setCineCredits] = useState(2500);
+  // Derived convenience values — keeps all child prop signatures unchanged
+  const walletAddress = currentUser?.wallet_address ?? null;
+  const cineCredits   = currentUser?.credit_balance ?? 0;
 
-  // CINE token balance for governance
+  // CINE token balance for governance (on-chain, not in DB yet)
   const [cineBalance, setCineBalance] = useState(350);
+
+  // ── Session persistence: rehydrate from localStorage on mount ───────────
+  useEffect(() => {
+    const initSession = async () => {
+      const savedWallet = loadWalletFromStorage();
+      if (savedWallet) {
+        try {
+          const user = await loginWithWallet(savedWallet);
+          setCurrentUser(user);
+        } catch (err) {
+          console.error("[App] Failed to rehydrate session:", err);
+          clearWalletFromStorage();
+        }
+      }
+      setIsRehydrating(false);
+    };
+    initSession();
+  }, []);
 
   // Token purchase flow state
   const [purchaseFilmId, setPurchaseFilmId] = useState<number | null>(null);
@@ -44,17 +73,30 @@ export default function App() {
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
 
   // Unified navigation handler — handles both simple views and views that need data
-  const navigate = (view: string, filmId?: number, curatorHandle?: string) => {
+  const navigate = (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => {
     if (filmId !== undefined) setSelectedFilmId(filmId);
     if (curatorHandle !== undefined) setSelectedCuratorHandle(curatorHandle);
+    if (marketItemId !== undefined) {
+      setSelectedMarketItem(marketItemId);
+    } else if (view !== "market") {
+      // Clear missing states when navigating away
+      setSelectedMarketItem(null);
+    }
+    
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleWalletConnect = (address: string) => {
-    setWalletAddress(address);
-    setCineCredits(2500);
+  /** Called by WalletConnectModal with the real Supabase DbUser row */
+  const handleWalletConnect = (user: DbUser) => {
+    setCurrentUser(user);
     setShowWalletModal(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    clearWalletFromStorage();
+    setCurrentView("landing");
   };
 
   const handlePurchaseRequest = (filmId: number, tierName: string, price: number) => {
@@ -67,9 +109,38 @@ export default function App() {
     setPurchasePrice(price);
   };
 
-  const handlePurchaseConfirm = (price: number) => {
-    setCineCredits((prev) => Math.max(0, prev - price));
-    // Keep modal open to show confirmation; close is handled inside TokenPurchaseFlow
+  const handlePurchaseConfirm = async (price: number) => {
+    if (!currentUser || purchaseFilmId === null) return;
+
+    try {
+      const updatedUser = await purchaseFilmToken(
+        currentUser.id,
+        purchaseFilmId.toString(), // Assuming filmId here matches DB UUID string for now
+        purchaseTier.toLowerCase() as any,
+        price
+      );
+      setCurrentUser(updatedUser);
+      // Keep modal open to show confirmation; close is handled inside TokenPurchaseFlow
+    } catch (err) {
+      console.error("[App] Purchase failed:", err);
+      // You could set an error state here to show a toast/alert
+    }
+  };
+
+  const handleSubscribe = async (tier: string, bonus: number) => {
+    if (!currentUser) {
+      setShowWalletModal(true);
+      return;
+    }
+    try {
+      const updatedUser = await subscribeToCinePass(currentUser.id, tier, bonus);
+      setCurrentUser(updatedUser);
+      alert(`Success! Simulated fiat payment complete. Added ${bonus} CC to your balance.`);
+      navigate("landing");
+    } catch (err) {
+      console.error("[App] Subscription failed:", err);
+      alert("Subscription failed. Check console.");
+    }
   };
 
   const noNavViews = ["studio", "revenue"];
@@ -95,6 +166,7 @@ export default function App() {
           cineCredits={cineCredits}
           onClose={() => setPurchaseFilmId(null)}
           onConfirm={handlePurchaseConfirm}
+          setView={navigate}
         />
       )}
 
@@ -105,6 +177,7 @@ export default function App() {
           walletAddress={walletAddress}
           cineCredits={cineCredits}
           onConnect={() => setShowWalletModal(true)}
+          onLogout={handleLogout}
         />
       )}
 
@@ -136,13 +209,13 @@ export default function App() {
           <StudioScreen setView={navigate} />
         )}
         {currentView === "pass" && (
-          <CinePassScreen cineCredits={cineCredits} setView={navigate} />
+          <CinePassScreen cineCredits={cineCredits} setView={navigate} onSubscribe={handleSubscribe} />
         )}
         {currentView === "governance" && (
           <GovernanceScreen cineBalance={cineBalance} />
         )}
         {currentView === "market" && (
-          <MarketScreen cineCredits={cineCredits} setView={navigate} />
+          <MarketScreen cineCredits={cineCredits} setView={navigate} selectedMarketItem={selectedMarketItem} />
         )}
         {currentView === "piracy" && (
           <PiracyScreen setView={navigate} />
@@ -150,7 +223,7 @@ export default function App() {
         {currentView === "curator" && (
           <CuratorProfileScreen
             curatorHandle={selectedCuratorHandle}
-            setView={(view, filmId) => navigate(view, filmId)}
+            setView={navigate}
           />
         )}
         {currentView === "revenue" && (
@@ -162,14 +235,14 @@ export default function App() {
         <Footer setView={navigate} />
       )}
 
-      {/* Studio / Revenue exit button */}
-      {noNavViews.includes(currentView) && (
-        <button
-          onClick={() => navigate("landing")}
-          className="fixed bottom-4 right-4 z-50 bg-on-surface text-surface px-4 py-2 font-label text-xs uppercase tracking-widest font-bold shadow-hard hover:-translate-y-1 hover:translate-x-1 hover:shadow-hard-hover transition-all"
-        >
-          Exit Dashboard
-        </button>
+      {/* Loading Overlay for Rehydration */}
+      {isRehydrating && (
+        <div className="fixed inset-0 z-[100] bg-surface flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="font-headline font-black uppercase tracking-widest text-on-surface-variant">CineChain</p>
+          </div>
+        </div>
       )}
     </div>
   );

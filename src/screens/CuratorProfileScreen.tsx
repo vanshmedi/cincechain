@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { Polaroid } from "../components/ui/Polaroid";
@@ -6,10 +7,12 @@ import { Star, Award, TrendingUp, Film } from "lucide-react";
 
 interface CuratorProfileScreenProps {
   curatorHandle: string;
-  setView: (view: string, filmId?: number) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 export function CuratorProfileScreen({ curatorHandle, setView }: CuratorProfileScreenProps) {
+  const [isFollowing, setIsFollowing] = useState(false);
+
   // Default to first curator if handle not found
   const curator = curators.find((c) => c.handle === curatorHandle) || curators[0];
   const endorsedFilms = films.filter((f) => curator.endorsedFilms.includes(f.id));
@@ -149,8 +152,17 @@ export function CuratorProfileScreen({ curatorHandle, setView }: CuratorProfileS
                 The Curator badge is earned through active endorsement history and community validation.
                 Curators with score &gt;85 gain <strong>Curator CinePass</strong> benefits automatically.
               </p>
-              <Button variant="outline" className="w-full text-sm">
-                Follow Curator
+              <Button 
+                variant={isFollowing ? "primary" : "outline"} 
+                className="w-full text-sm"
+                onClick={() => {
+                  setIsFollowing(!isFollowing);
+                  if (!isFollowing) {
+                    alert("You are now subscribed to this curator's on-chain endorsements!");
+                  }
+                }}
+              >
+                {isFollowing ? "Following" : "Follow Curator"}
               </Button>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { MessageSquare, Users, Activity, ArrowUpRight, Star } from "lucide-react";
 
 interface CommunityScreenProps {
-  setView: (view: string, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 const threads = [
@@ -37,7 +37,7 @@ export function CommunityScreen({ setView }: CommunityScreenProps) {
             </p>
           </div>
           <div className="flex gap-4 mt-8 md:mt-0">
-            <Button size="lg">New Thread</Button>
+            <Button size="lg" onClick={() => alert('Community forums and messaging will unlock in V2 post-mainnet launch!')}>New Thread</Button>
             <Button size="lg" variant="outline" onClick={() => setView("governance")}>
               Governance
             </Button>
@@ -57,6 +57,7 @@ export function CommunityScreen({ setView }: CommunityScreenProps) {
                 <div
                   key={thread.id}
                   className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300 cursor-pointer group"
+                  onClick={() => alert('Community forums and messaging will unlock in V2 post-mainnet launch!')}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <span className={`inline-block px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${
@@ -97,7 +98,7 @@ export function CommunityScreen({ setView }: CommunityScreenProps) {
             </div>
 
             <div className="mt-12 text-center">
-              <Button variant="outline">View All Discussions</Button>
+              <Button variant="outline" onClick={() => alert('Community forums and messaging will unlock in V2 post-mainnet launch!')}>View All Discussions</Button>
             </div>
           </div>
 
@@ -114,7 +115,7 @@ export function CommunityScreen({ setView }: CommunityScreenProps) {
                   <div
                     key={i}
                     className="bg-surface-container-lowest border border-outline-variant p-4 flex items-center hover:bg-surface-container transition-colors cursor-pointer group"
-                    onClick={() => setView("curator", curator.handle)}
+                    onClick={() => setView("curator", undefined, curator.handle)}
                   >
                     <div className="w-10 h-10 rounded-full bg-secondary text-white flex items-center justify-center font-headline font-bold text-sm mr-3 flex-shrink-0">
                       {curator.avatar}
@@ -144,6 +145,7 @@ export function CommunityScreen({ setView }: CommunityScreenProps) {
                   <div
                     key={i}
                     className="bg-surface-container-lowest border border-outline-variant p-4 flex flex-col items-center text-center hover:bg-surface-container transition-colors cursor-pointer"
+                    onClick={() => alert('Community forums and messaging will unlock in V2 post-mainnet launch!')}
                   >
                     <div className="w-12 h-12 rounded-full bg-tertiary text-white flex items-center justify-center font-headline font-bold text-lg mb-3">
                       {member.avatar}

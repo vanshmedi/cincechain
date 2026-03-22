@@ -5,7 +5,7 @@ import { films } from "../data/mockData";
 import { BarChart3, TrendingUp, Film, DollarSign, ArrowUpRight } from "lucide-react";
 
 interface FilmmakerRevenueDashboardProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 // Mock revenue data per film
@@ -31,7 +31,14 @@ export function FilmmakerRevenueDashboard({ setView }: FilmmakerRevenueDashboard
   const selected = revenueByFilm.find((f) => f.filmId === selectedFilm) || revenueByFilm[0];
 
   return (
-    <div className="w-full pt-16 bg-surface-container-low min-h-screen">
+    <div className="w-full pt-16 bg-surface min-h-screen relative">
+      <button
+        onClick={() => setView('landing')}
+        className="fixed top-4 left-4 z-50 flex items-center bg-surface-container-lowest border border-outline-variant px-4 py-2 font-label text-xs uppercase tracking-widest font-bold text-on-surface hover:text-primary hover:border-primary transition-all shadow-sm"
+      >
+        ⬅ Back to Platform
+      </button>
+
       {/* Header */}
       <div className="w-full bg-on-surface pt-20 pb-12 relative overflow-hidden">
         <RainbowStripe className="absolute top-0 left-0 h-3 w-full" />
@@ -186,7 +193,7 @@ export function FilmmakerRevenueDashboard({ setView }: FilmmakerRevenueDashboard
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Back to Studio
               </Button>
-              <Button variant="outline" className="flex-1">
+              <Button variant="outline" className="flex-1" onClick={() => alert('Your USDC withdrawal request has been queued. Settlement occurs on the 1st of every month.')}>
                 <DollarSign className="h-4 w-4 mr-2" />
                 Withdraw CC
               </Button>

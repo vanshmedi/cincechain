@@ -4,7 +4,7 @@ import { piracyDetections } from "../data/mockData";
 import { ShieldAlert, ShieldCheck, AlertTriangle, ExternalLink, Download } from "lucide-react";
 
 interface PiracyScreenProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
 export function PiracyScreen({ setView }: PiracyScreenProps) {
@@ -67,7 +67,7 @@ export function PiracyScreen({ setView }: PiracyScreenProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex justify-between items-center border-b-2 border-on-surface pb-4 mb-10">
           <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">Detection Log</h2>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => alert('Forensic package generated! Automated DMCA takedowns require a verified Filmmaker KYC profile.')}>
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
@@ -124,10 +124,10 @@ export function PiracyScreen({ setView }: PiracyScreenProps) {
                   </div>
                 </div>
                 <div className="flex flex-col justify-center p-6 border-t md:border-t-0 md:border-l border-outline-variant gap-3 md:w-48">
-                  <Button size="sm" className="w-full">
+                  <Button size="sm" className="w-full" onClick={() => alert('Forensic package generated! Automated DMCA takedowns require a verified Filmmaker KYC profile.')}>
                     Send DMCA
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => alert('Forensic package generated! Automated DMCA takedowns require a verified Filmmaker KYC profile.')}>
                     <ExternalLink className="h-4 w-4 mr-1" />
                     View Source
                   </Button>

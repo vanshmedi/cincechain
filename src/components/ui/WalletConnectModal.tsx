@@ -1,32 +1,66 @@
 import { useState } from "react";
 import { Button } from "./Button";
-import { X, Wallet, Fingerprint, Shield, ChevronRight, CheckCircle2 } from "lucide-react";
+import { X, Wallet, Fingerprint, Shield, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { loginWithWallet, saveWalletToStorage } from "../../lib/auth";
+import type { DbUser } from "../../lib/supabase";
+
+import { BrowserProvider } from "ethers";
 
 interface WalletConnectModalProps {
   onClose: () => void;
-  onConnect: (address: string) => void;
+  /** Called with the full Supabase user row on successful connect */
+  onConnect: (user: DbUser) => void;
 }
 
 const walletOptions = [
-  { id: "privy", name: "Privy (Email / Social)", description: "No crypto knowledge needed. Login with email, Google, or Twitter.", icon: "✉" },
-  { id: "metamask", name: "MetaMask", description: "Connect your existing MetaMask wallet.", icon: "🦊" },
-  { id: "coinbase", name: "Coinbase Wallet", description: "Connect with Coinbase Wallet.", icon: "🔵" },
-  { id: "walletconnect", name: "WalletConnect", description: "Scan a QR code with any compatible wallet.", icon: "🔗" },
+  { id: "metamask",      name: "MetaMask / Web3 Wallet", description: "Connect using your browser extension.",                           icon: "🦊" },
+  { id: "coinbase",      name: "Coinbase Wallet",         description: "Connect with Coinbase Wallet.",                                   icon: "🔵" },
+  { id: "walletconnect", name: "WalletConnect",           description: "Scan a QR code with any compatible wallet.",                      icon: "🔗" },
+  { id: "privy",         name: "Privy (Email / Social)", description: "No crypto knowledge needed. Login with email, Google, or Twitter.", icon: "✉" },
 ];
 
 export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalProps) {
-  const [step, setStep] = useState<"choose" | "connecting" | "done">("choose");
+  const [step, setStep]       = useState<"choose" | "connecting" | "done" | "error">("choose");
   const [selected, setSelected] = useState<string | null>(null);
+  const [user, setUser]         = useState<DbUser | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>("");
 
   const handleConnect = async (walletId: string) => {
     setSelected(walletId);
     setStep("connecting");
-    // Simulate wallet connection
-    await new Promise((r) => setTimeout(r, 1600));
-    setStep("done");
-    // Generate mock address
-    const mockAddress = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase() + "..." + Math.random().toString(16).slice(2, 6).toUpperCase();
-    onConnect(mockAddress);
+    setErrorMsg("");
+
+    try {
+      let address = "";
+
+      // 1. Get real address from browser wallet
+      if (typeof window.ethereum !== "undefined") {
+        // Use ethers v6 BrowserProvider
+        const provider = new BrowserProvider(window.ethereum);
+        // This prompts the user to accept the connection in their wallet extension
+        await provider.send("eth_requestAccounts", []);
+        const signer = await provider.getSigner();
+        address = await signer.getAddress();
+      } else {
+        throw new Error("No crypto wallet found. Please install MetaMask or Coinbase Wallet.");
+      }
+
+      // 2. Upsert user in Supabase — returns existing or newly created row
+      const dbUser = await loginWithWallet(address);
+
+      // 3. Persist for continuity
+      saveWalletToStorage(address);
+
+      setUser(dbUser);
+      setStep("done");
+
+      // Notify parent — small delay so user sees the "Connected!" screen briefly
+      setTimeout(() => onConnect(dbUser), 1200);
+    } catch (err) {
+      console.error("[WalletConnectModal]", err);
+      setErrorMsg(err instanceof Error ? err.message : "Connection failed. Please try again.");
+      setStep("error");
+    }
   };
 
   return (
@@ -42,6 +76,7 @@ export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalPro
           <X className="h-5 w-5" />
         </button>
 
+        {/* ── Step 1: Choose wallet ──────────────────────────────────── */}
         {step === "choose" && (
           <div className="p-8 pt-10">
             <div className="flex items-center mb-6">
@@ -81,6 +116,7 @@ export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalPro
           </div>
         )}
 
+        {/* ── Step 2: Connecting (Supabase call in progress) ────────── */}
         {step === "connecting" && (
           <div className="p-8 pt-10 text-center">
             <div className="w-20 h-20 mx-auto mb-6 relative">
@@ -98,7 +134,8 @@ export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalPro
           </div>
         )}
 
-        {step === "done" && (
+        {/* ── Step 3: Done ──────────────────────────────────────────── */}
+        {step === "done" && user && (
           <div className="p-8 pt-10 text-center">
             <div className="w-20 h-20 mx-auto mb-6 bg-primary/10 flex items-center justify-center">
               <CheckCircle2 className="h-12 w-12 text-primary" />
@@ -111,17 +148,42 @@ export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalPro
               <div className="flex items-center">
                 <Fingerprint className="h-5 w-5 text-primary mr-3" />
                 <div className="text-left">
-                  <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-0.5">Starting Balance</p>
-                  <p className="font-headline font-black text-xl">2,500 CC</p>
+                  <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-0.5">
+                    CineCredit Balance
+                  </p>
+                  <p className="font-headline font-black text-xl">
+                    {user.credit_balance.toLocaleString()} CC
+                  </p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">= $250</p>
+                <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                  = ${(user.credit_balance * 0.1).toFixed(0)}
+                </p>
               </div>
             </div>
             <Button className="w-full" size="lg" onClick={onClose}>
               Enter CineChain
             </Button>
+          </div>
+        )}
+
+        {/* ── Error state ───────────────────────────────────────────── */}
+        {step === "error" && (
+          <div className="p-8 pt-10 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 bg-error/10 flex items-center justify-center">
+              <AlertCircle className="h-12 w-12 text-error" />
+            </div>
+            <h2 className="text-3xl font-headline font-black uppercase tracking-tight mb-2">Connection Failed</h2>
+            <p className="font-body text-on-surface-variant mb-6 text-sm">{errorMsg}</p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setStep("choose")}>
+                Try Again
+              </Button>
+              <Button className="flex-1" onClick={onClose}>
+                Close
+              </Button>
+            </div>
           </div>
         )}
       </div>

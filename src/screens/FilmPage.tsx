@@ -16,7 +16,7 @@ import {
 
 interface FilmPageProps {
   filmId: number;
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
   onPurchase: (filmId: number, tier: string, price: number) => void;
   cineCredits: number;
 }

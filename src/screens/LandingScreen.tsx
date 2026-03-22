@@ -2,7 +2,7 @@ import { Button } from "../components/ui/Button";
 import { ArrowRight, PlayCircle, Ticket, Star, Award, Wallet } from "lucide-react";
 
 interface LandingScreenProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
   onConnect: () => void;
 }
 

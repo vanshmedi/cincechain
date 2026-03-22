@@ -90,7 +90,7 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
               <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">
                 Proposals
               </h2>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => alert('DAO Governance proposals are currently in the timelock review period. Check back soon.')}>
                 + New Proposal
               </Button>
             </div>
@@ -248,7 +248,7 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
               <p className="font-body text-sm text-on-surface-variant mb-4">
                 Acquire $CINE tokens to participate in governance. Auteur CinePass holders receive a monthly CINE allocation.
               </p>
-              <Button variant="outline" className="w-full text-sm">
+              <Button variant="outline" className="w-full text-sm" onClick={() => alert('DAO Governance proposals are currently in the timelock review period. Check back soon.')}>
                 Acquire $CINE
               </Button>
             </div>

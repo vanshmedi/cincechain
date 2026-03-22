@@ -4,7 +4,7 @@ import { Hexagon, Lock } from "lucide-react";
 import { Button } from "../components/ui/Button";
 
 interface VaultScreenProps {
-  setView: (view: string) => void;
+  setView: (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => void;
 }
 
 // PRD-compliant: CC amounts instead of ETH
@@ -84,7 +84,7 @@ export function VaultScreen({ setView }: VaultScreenProps) {
                 </div>
                 {/* Hover: list on market */}
                 <div className="absolute inset-0 bg-on-surface/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 mx-2 mb-8">
-                  <Button size="sm" onClick={() => setView("market")}>
+                  <Button size="sm" onClick={() => setView("market", undefined, undefined, item.id)}>
                     List on Market
                   </Button>
                 </div>
@@ -97,7 +97,7 @@ export function VaultScreen({ setView }: VaultScreenProps) {
         <section>
           <div className="flex justify-between items-end mb-8 border-b-2 border-on-surface pb-4">
             <h2 className="text-4xl font-headline font-black uppercase tracking-tighter">Transaction Ledger</h2>
-            <button className="font-label text-sm uppercase tracking-widest text-primary hover:text-on-surface transition-colors font-bold">
+            <button className="font-label text-sm uppercase tracking-widest text-primary hover:text-on-surface transition-colors font-bold" onClick={() => alert('Your USDC withdrawal request has been queued. Settlement occurs on the 1st of every month.')}>
               Export CSV
             </button>
           </div>
