@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Caveat:wght@400;500;600;700&display=swap');
+
+@theme {
+  --color-primary: #b80e21;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffdad6;
+  --color-on-primary-container: #410002;
+  --color-secondary: #0162a2;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d2e4ff;
+  --color-on-secondary-container: #001c37;
+  --color-tertiary: #825100;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #ffdcbe;
+  --color-on-tertiary-container: #291800;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #410002;
+  --color-background: #fbf9f4;
+  --color-on-background: #1b1c19;
+  --color-surface: #fbf9f4;
+  --color-on-surface: #1b1c19;
+  --color-surface-variant: #f4dddb;
+  --color-on-surface-variant: #5b403e;
+  --color-outline: #857371;
+  --color-outline-variant: #e4bdba;
+  --color-shadow: #000000;
+  --color-scrim: #000000;
+  --color-inverse-surface: #31302d;
+  --color-inverse-on-surface: #f3f0eb;
+  --color-inverse-primary: #ffb4ab;
+  --color-surface-dim: #dbd9d5;
+  --color-surface-bright: #fbf9f4;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3ef;
+  --color-surface-container: #f0eee9;
+  --color-surface-container-high: #eae8e4;
+  --color-surface-container-highest: #e4e2de;
+
+  --font-headline: 'Epilogue', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-label: 'Space Grotesk', sans-serif;
+  --font-handwriting: 'Caveat', cursive;
+
+  --shadow-film: 0 20px 40px rgba(27, 28, 25, 0.08);
+  --shadow-film-hover: 0 30px 60px rgba(27, 28, 25, 0.12);
+  --shadow-hard: -4px 4px 0px rgba(27, 28, 25, 1);
+  --shadow-hard-hover: -6px 6px 0px rgba(27, 28, 25, 1);
+}
+
+@layer utilities {
+  .rainbow-bg {
+    background: linear-gradient(90deg, #b80e21 0%, #0162a2 50%, #825100 100%);
+  }
+  .rainbow-border {
+    border-image: linear-gradient(90deg, #b80e21 0%, #0162a2 50%, #825100 100%) 1;
+  }
+  .rainbow-text {
+    background: linear-gradient(90deg, #b80e21 0%, #0162a2 50%, #825100 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+}
+
+body {
+  @apply bg-surface text-on-surface font-body antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-surface-container;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-outline-variant;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-outline;
+}
