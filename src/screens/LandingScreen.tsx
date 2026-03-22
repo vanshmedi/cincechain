@@ -1,76 +1,90 @@
-import { useState } from "react";
 import { Button } from "../components/ui/Button";
-import { Polaroid } from "../components/ui/Polaroid";
-import { ArrowRight, PlayCircle, Hexagon, Ticket, Zap, Star, Award, Wallet } from "lucide-react";
+import { ArrowRight, PlayCircle, Ticket, Star, Award, Wallet } from "lucide-react";
 
 interface LandingScreenProps {
   setView: (view: string) => void;
   onConnect: () => void;
 }
 
-// Film marquee data for scrolling ticker
-const marqueeItems = [
-  "New Mint: \"The Silent Echo\" — Collector Token #007 sold",
-  "Governance: CIP-042 passes with 12,847 votes",
-  "Neon Dreams: Secondary market volume 6,000 CC",
-  "Protocol fee reduced to 5% — CIP-041 implemented",
-  "Curator endorsed: \"Concrete Jungle\" joins top picks",
+// ─── Polaroid images from Stitch ───────────────────────────────────────────
+const stitchPolaroids = [
+  {
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuCEsOjC_gJlu8oHgfk_O6j_GJc3t83qLV-B41u5NC62jonNcJhdUPyZiRoQDTHKEid2h0yF5-rbvhucjgoQzZNFeIwE66kFFQZpnRaDiMMLrhghzxAbAWpsBaoqO0cmy9rbTvALqPXDnaYiac47IB50YmiBJwpg1hwCjPr5db5qxaubVFoUWgGk5Mp-8x2Vkq9VKykXXb73K-Vpa3tF6RFvojIpWOQ9KHjbEkLvge66JDIyoYab8BJPKCBn9cOYpniBhxQyOItxmco",
+    label: "Roll #001: Genesis",
+    posClass: "top-[20%] left-[10%] w-64 -rotate-6",
+  },
+  {
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuCsXF_MD5ySTFkaR9DqTnP4BAbm1GPvm_vBZsZkOn4h7hhI3BJTT1UGn3gqDuJq3rQhciaGpuW_KEv9HrE5nV_WDsUqmCjDBXwnZPzDpzmB8VjbpRRMSiMeHoH-7HXNNtwx9bhyC7_pw2OI1HzGLypu94x8Rp3L3_PSH-le7jJAiv2J5TaHEibmojKHxgIsz_IcLDhRUAxcGUPQg5FZpyM6PzmVckY36yRdZwtocJhOyBl9QRKP0QE7pGev00okuGo9jRI4Qns-nM0",
+    label: "Frame #442: Noir",
+    posClass: "top-[15%] right-[10%] w-56 rotate-12",
+  },
+  {
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuDxzy9SJxGDYQEqyxPj45FJO7nYSlXxFP3tQavLuYEBX7OcJfhQkjFqzu622eIqkR8T7T0HA1c42ZZ7hJQjjvvhFC2raXJ2N3xs-phG8YFF3lgr62fFS6iNEgfIH0X0iCcCFdF2FF22D1Yxj3Fb2MCcnYhIy4sY36-8A_wAqG45IdBCiT3dOoqnfbzWJZaeeyC55t7PzrBIl3jsZXly5XdRQhUCgRphf2tDe0GlcVXUXegdt9WpmGoTn-BtQKPMWJoX6v9QYZF8zCo",
+    label: "Batch #90: Neon",
+    posClass: "bottom-[10%] left-[15%] w-60 -rotate-12",
+  },
+  {
+    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuC_k5d6rGqBankrBauktuzfsbafVynCjSyr010GaMNg_SBQKadLxsHG7sHbhuywu98BCY6IVT7S0LRzv5bV7YSXGciYKExmV3HUaPCIuImdxY1tnllnpNFS-ciQp43GO_zzsSNz3tG-q6s7JazuHTqVR7M_i6nD7swi4emS5SCIzDgxplDo04X2ZtQ-Obd7S_Q_JE_cVciBuCPiVpYyCvy5BmmExEcyUJjrt6NvkJCMyqWR0iSdH7nZU3K5H9HhtU-RiRL2JC1n7HY",
+    label: "Stock #112: Archive",
+    posClass: "bottom-[15%] right-[15%] w-72 rotate-3",
+  },
+];
+
+// ─── Access tier images from Stitch ────────────────────────────────────────
+const accessTiers = [
+  {
+    key: "rental",
+    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAKgs4Gfs7CaIvOAqQGqoDhS_WuFxVYwny748kj9TXRuxoM04MstCrqS8y_ascRXrmlZSs2RBlfEwuyaTcfxmVmqizB9QHdcsyG-mSeQLDstwmCKCMl99zuX44-KpiusyHSMiWbuk4Zb27MmDJvBOWBa0IWBxaUUvM-7JXmyb52Td8q87EZpol7fyvnK1EqDgMUZxdDUr3YWUKQcrHyAeW-dy2gP4Y1_-fRnxQQi-nYOocfenOUVjdDLV4SU_r0ofHfQxfvfWAJVZE",
+    imgAlt: "Hand holding a cinema ticket",
+    name: "RENTAL",
+    label: "48-HOUR STREAM",
+    price: "$4.99",
+    borderColor: "border-on-surface",
+    labelColor: "text-on-surface-variant",
+    featured: false,
+  },
+  {
+    key: "ownership",
+    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBsddTsR6kuOxNuMniatNaovSU0NEM0d6AehIRNrGEmhJGCUEcofrGucaNlsSVTixLvaK4dQbCjhHHkkfNRIka9cV_PWJG6JUtLaM48dx0yHdBpGRlSNYfc0hCQjcVe-bR4Kq_skWqoTNVhkuBQHawRrdtPv7_xKzmT9-wgDyJBmUSCeqdm1i-sVkv6aBeFN5T6MRXNf0sQmSGSpgewHqizOd_bLPI9-DAF4gNThyM05ygbYPZl030-vYEpzNNahGRMCctTtZlrRW4",
+    imgAlt: "Stack of film canisters in color",
+    name: "OWNERSHIP",
+    label: "PERPETUAL ACCESS",
+    price: "$24.99",
+    borderColor: "border-primary",
+    labelColor: "text-primary",
+    featured: true,
+  },
+  {
+    key: "collector",
+    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuD44BQwCSSYUmsecQ3zIHM0gE_bi5BWvF0mrEGowqFOVx44HXcUJ4ndwGlKfMor-W7mhgvTNB6Z5AZzmZ9IwYMQ4klI1OHMFVzdqlR2NQIK_FSeoMjdvpbGCWcxPVyAwX9cHSMS83n-zKZHs3Oi8eS7-0hra0XUF4pT70uXZakX-NQSNmxf8K2eZDP4h0N18bTNdOvKgsasWZw1UHDcqX7_n0nVHL6-lnv6oKB6Ta3ml_BiRkf8izPZxu6NjZnEDgtYpXUX_Iu9LBM",
+    imgAlt: "Signed film script and clapboard",
+    name: "COLLECTOR",
+    label: "SIGNED SCRIPTS + NFT",
+    price: "$199.00",
+    borderColor: "border-on-surface",
+    labelColor: "text-on-surface-variant",
+    featured: false,
+  },
 ];
 
 export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
-  const filmPolaroids = [
-    { imageUrl: "https://picsum.photos/seed/film1/400/300", title: "Neon Dreams", subtitle: "Sci-Fi / 2024" },
-    { imageUrl: "https://picsum.photos/seed/film3/400/300", title: "The Silent Echo", subtitle: "Drama / 2024" },
-    { imageUrl: "https://picsum.photos/seed/film2/400/300", title: "The Last Heist", subtitle: "Action / 2023" },
-  ];
-
   return (
     <div className="w-full">
-      {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-20">
-        <div className="absolute inset-0 bg-surface-container-lowest z-[-1]" />
-        {/* Decorative scattered polaroids */}
-        <div className="absolute top-20 left-10 -rotate-12 opacity-40 hidden lg:block">
-          <Polaroid
-            imageUrl={filmPolaroids[0].imageUrl}
-            title={filmPolaroids[0].title}
-            subtitle={filmPolaroids[0].subtitle}
-            className="w-64"
-          />
-        </div>
-        <div className="absolute bottom-20 right-10 rotate-6 opacity-40 hidden lg:block">
-          <Polaroid
-            imageUrl={filmPolaroids[1].imageUrl}
-            title={filmPolaroids[1].title}
-            subtitle={filmPolaroids[1].subtitle}
-            className="w-64"
-          />
-        </div>
-        <div className="absolute top-40 right-24 -rotate-3 opacity-20 hidden xl:block">
-          <Polaroid
-            imageUrl={filmPolaroids[2].imageUrl}
-            title={filmPolaroids[2].title}
-            subtitle={filmPolaroids[2].subtitle}
-            className="w-48"
-          />
-        </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 flex flex-col items-center">
-          <div className="inline-flex items-center space-x-2 bg-surface-variant px-4 py-2 mb-8 border border-outline-variant">
-            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">
-              Protocol v2.1 Live · 5% Protocol Fee · 1 CC = $0.10
-            </span>
-          </div>
-          <h1 className="text-7xl md:text-9xl font-headline font-black uppercase tracking-tighter leading-[0.85] mb-8 text-on-surface">
-            Film. <br />
-            <span className="rainbow-text">Unchained.</span>
+      {/* ── HERO ──────────────────────────────────────────────────────────── */}
+      <header className="relative min-h-screen bg-surface-container-lowest flex flex-col justify-center items-center overflow-hidden pt-20">
+        {/* Giant rainbow stripe behind headline */}
+        <div className="absolute w-full h-32 rainbow-bg opacity-10 top-1/2 -translate-y-1/2 -rotate-2 pointer-events-none" />
+
+        <div className="relative z-10 text-center px-4">
+          <h1 className="font-headline font-black text-7xl md:text-[10rem] leading-none tracking-tighter uppercase text-on-background">
+            Film.<br />
+            <span className="text-primary">Unchained.</span>
           </h1>
-          <p className="text-xl md:text-2xl font-body text-on-surface-variant max-w-2xl mx-auto mb-12 leading-relaxed">
-            The decentralized studio and distribution network. Fund, create, and
-            own the future of cinema without intermediaries.
+          <p className="font-label uppercase tracking-widest text-lg mt-8 text-on-surface-variant max-w-xl mx-auto">
+            Decentralized Cinema Infrastructure for the Next Generation of Auteurs.
           </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center mt-12">
             <Button size="lg" className="group" onClick={() => setView("gallery")}>
               Enter Gallery
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -81,61 +95,139 @@ export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
             </Button>
           </div>
         </div>
+
+        {/* Scattered polaroids (desktop only) */}
+        <div className="hidden lg:block">
+          {stitchPolaroids.map((p) => (
+            <div
+              key={p.label}
+              className={`absolute ${p.posClass} p-4 pb-16 bg-white border border-surface-variant transition-all duration-500 hover:rotate-0 hover:scale-105 hover:z-50 hover:shadow-[0_30px_60px_rgba(0,0,0,0.12)]`}
+              style={{ boxShadow: "0 20px 40px rgba(27,28,25,0.08)" }}
+            >
+              <img
+                src={p.src}
+                alt={p.label}
+                className="w-full aspect-square object-cover mb-4"
+              />
+              <span className="font-label text-xs uppercase text-on-surface-variant">{p.label}</span>
+            </div>
+          ))}
+        </div>
+      </header>
+
+      {/* ── MARQUEE TICKER ────────────────────────────────────────────────── */}
+      <section className="w-full py-4 rainbow-bg overflow-hidden border-y-2 border-black/10">
+        <div
+          className="font-headline font-extrabold text-3xl text-white uppercase tracking-tighter whitespace-nowrap inline-block"
+          style={{ animation: "marquee 30s linear infinite" }}
+        >
+          THE LAST REEL&nbsp;&nbsp;•&nbsp;&nbsp;NOIR ETERNAL&nbsp;&nbsp;•&nbsp;&nbsp;CYBERPUNK 2088&nbsp;&nbsp;•&nbsp;&nbsp;ANALOG DREAMS&nbsp;&nbsp;•&nbsp;&nbsp;KODACHROME HEART&nbsp;&nbsp;•&nbsp;&nbsp;THE LAST REEL&nbsp;&nbsp;•&nbsp;&nbsp;NOIR ETERNAL&nbsp;&nbsp;•&nbsp;&nbsp;CYBERPUNK 2088&nbsp;&nbsp;•&nbsp;&nbsp;ANALOG DREAMS&nbsp;&nbsp;•&nbsp;&nbsp;KODACHROME HEART&nbsp;&nbsp;•&nbsp;&nbsp;
+        </div>
       </section>
 
-      {/* Marquee Ticker — animated film title scroll */}
-      <div className="w-full bg-on-surface text-surface py-4 overflow-hidden border-y border-outline-variant/30 relative flex items-center">
-        <div className="flex whitespace-nowrap animate-[marquee_30s_linear_infinite]">
-          {[...Array(4)].map((_, i) =>
-            marqueeItems.map((item, j) => (
-              <span
-                key={`${i}-${j}`}
-                className="mx-8 font-label text-sm uppercase tracking-widest flex items-center"
-              >
-                <Hexagon className="h-4 w-4 mr-2 text-primary flex-shrink-0" />
-                {item}
-              </span>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Process Section */}
-      <section className="py-32 bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-20">
-            <h2 className="text-5xl md:text-7xl font-headline font-black uppercase tracking-tighter mb-6">
-              The New Paradigm
+      {/* ── THE PROCESS ───────────────────────────────────────────────────── */}
+      <section className="py-24 px-8 bg-surface">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-24">
+            <h2 className="font-headline text-6xl md:text-8xl font-black uppercase tracking-tighter mb-4">
+              THE PROCESS
             </h2>
-            <p className="text-xl font-body text-on-surface-variant max-w-3xl mx-auto">
-              We are dismantling the traditional studio system. Here is how the
-              collective operates.
-            </p>
+            <div className="h-2 w-32 bg-primary" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { num: "01", title: "Fund", color: "border-primary", desc: "Creators pitch their vision directly to the collective. Backers purchase fractional ownership tokens, funding production without studio interference.", view: "gallery" },
-              { num: "02", title: "Create", color: "border-secondary", desc: "Production updates, behind-the-scenes access, and governance decisions are shared transparently with token holders via the Studio dashboard.", view: "studio" },
-              { num: "03", title: "Distribute", color: "border-tertiary", desc: "Films are minted as unique digital assets. Revenue from streaming, rentals, and secondary sales flows automatically to token holders via smart contracts.", view: "market" },
-            ].map(({ num, title, color, desc, view }) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+            {/* Step 01 */}
+            <div
+              className="group relative p-12 min-h-[500px] flex flex-col justify-end overflow-hidden cursor-pointer"
+              style={{ backgroundColor: "#E8383D" }}
+              onClick={() => setView("gallery")}
+            >
+              <span className="absolute -top-10 -right-5 font-headline text-[15rem] leading-none font-black text-black/10 transition-transform group-hover:-translate-y-4 select-none">
+                01
+              </span>
+              <div className="relative z-10">
+                <h3 className="font-headline text-4xl font-black text-white uppercase mb-4">MINT THE VISION</h3>
+                <p className="text-white/90 text-lg">
+                  Upload your master cut. Direct ownership via the blockchain, immutable and permanent.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 02 */}
+            <div
+              className="group relative p-12 min-h-[500px] flex flex-col justify-end overflow-hidden cursor-pointer"
+              style={{ backgroundColor: "#F7D12E" }}
+              onClick={() => setView("studio")}
+            >
+              <span className="absolute -top-10 -right-5 font-headline text-[15rem] leading-none font-black text-black/10 transition-transform group-hover:-translate-y-4 select-none">
+                02
+              </span>
+              <div className="relative z-10">
+                <h3 className="font-headline text-4xl font-black text-black uppercase mb-4">FRACTIONALIZE</h3>
+                <p className="text-black/80 text-lg">
+                  Issue tickets as tokens. Let your audience become your studio executives and backers.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 03 */}
+            <div
+              className="group relative p-12 min-h-[500px] flex flex-col justify-end overflow-hidden cursor-pointer"
+              style={{ backgroundColor: "#3B82C4" }}
+              onClick={() => setView("market")}
+            >
+              <span className="absolute -top-10 -right-5 font-headline text-[15rem] leading-none font-black text-black/10 transition-transform group-hover:-translate-y-4 select-none">
+                03
+              </span>
+              <div className="relative z-10">
+                <h3 className="font-headline text-4xl font-black text-white uppercase mb-4">SCREEN WORLDWIDE</h3>
+                <p className="text-white/90 text-lg">
+                  Bypass gatekeepers. Stream to global audiences with automated royalty distribution.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── ACCESS TIERS ──────────────────────────────────────────────────── */}
+      <section className="py-24 bg-surface-container overflow-hidden">
+        <div className="max-w-7xl mx-auto px-8">
+          <h2 className="font-headline text-5xl md:text-7xl font-black uppercase tracking-tighter mb-16 text-center">
+            ACCESS TIERS
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            {accessTiers.map((tier) => (
               <div
-                key={num}
-                className={`bg-surface-container-lowest p-10 border-t-8 ${color} shadow-film hover:-translate-y-2 transition-transform duration-300 relative overflow-hidden group cursor-pointer`}
-                onClick={() => setView(view)}
+                key={tier.key}
+                className={`bg-white p-6 pb-20 border border-surface-variant transition-all duration-300 hover:-translate-y-4 hover:shadow-[0_40px_80px_rgba(0,0,0,0.15)] flex flex-col cursor-pointer ${
+                  tier.featured ? "scale-110 z-20" : ""
+                }`}
+                onClick={() => setView("pass")}
               >
-                <div className="absolute -right-10 -top-10 text-[10rem] font-headline font-black text-surface-variant/30 leading-none group-hover:text-primary/10 transition-colors">
-                  {num}
+                <div className="bg-surface-container mb-6 overflow-hidden">
+                  <img
+                    src={tier.img}
+                    alt={tier.imgAlt}
+                    className={`w-full aspect-square object-cover transition-all duration-700 ${
+                      tier.featured ? "" : "grayscale hover:grayscale-0"
+                    }`}
+                  />
                 </div>
-                <h3 className="text-3xl font-headline font-bold uppercase tracking-tight mb-4 relative z-10">{title}</h3>
-                <p className="font-body text-on-surface-variant relative z-10">{desc}</p>
+                <div className="mt-auto">
+                  <h4 className="font-headline text-3xl font-black uppercase mb-2">{tier.name}</h4>
+                  <div className={`flex justify-between items-center border-t-2 ${tier.borderColor} pt-4`}>
+                    <span className={`font-label text-sm uppercase ${tier.labelColor}`}>{tier.label}</span>
+                    <span className="font-headline text-xl font-black text-primary">{tier.price}</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CinePass Access Tiers — PRD-compliant: Observer / Curator / Auteur */}
+      {/* ── CinePass Tiers (subscription plans) — PRESERVED UNTOUCHED ──── */}
       <section className="py-32 bg-surface-container-low border-y border-outline-variant/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16">
@@ -196,7 +288,7 @@ export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
         </div>
       </section>
 
-      {/* CTA connect wallet section */}
+      {/* ── CTA connect wallet — PRESERVED UNTOUCHED ─────────────────────── */}
       <section className="py-32 bg-on-surface text-surface-container-lowest relative overflow-hidden">
         <div className="absolute inset-0 rainbow-bg opacity-[0.08]" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
@@ -221,6 +313,7 @@ export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
           </div>
         </div>
       </section>
+
     </div>
   );
 }
