@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { ArrowRight, PlayCircle, Ticket, Star, Award, Wallet } from "lucide-react";
+import type { DbFilm } from "../lib/supabase";
+import { fetchDbFilms } from "../lib/auth";
 
 interface LandingScreenProps {
   setView: (view: string, filmId?: number, curatorHandle?: string) => void;
@@ -45,7 +48,7 @@ const accessTiers = [
   },
   {
     key: "ownership",
-    img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBsddTsR6kuOxNuMniatNaovSU0NEM0d6AehIRNrGEmhJGCUEcofrGucaNlsSVTixLvaK4dQbCjhHHkkfNRIka9cV_PWJG6JUtLaM48dx0yHdBpGRlSNYfc0hCQjcVe-bR4Kq_skWqoTNVhkuBQHawRrdtPv7_xKzmT9-wgDyJBmUSCeqdm1i-sVkv6aBeFN5T6MRXNf0sQmSGSpgewHqizOd_bLPI9-DAF4gNThyM05ygbYPZl030-vYEpzNNahGRMCctTtZlrRW4",
+    img: "https://islandinthenet.com/wp-content/uploads/2020/09/Minolta_X-700_20200911_000202990006.jpg",
     imgAlt: "Stack of film canisters in color",
     name: "OWNERSHIP",
     label: "PERPETUAL ACCESS",
@@ -68,6 +71,18 @@ const accessTiers = [
 ];
 
 export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
+  const [dbFilms, setDbFilms] = useState<DbFilm[]>([]);
+
+  useEffect(() => {
+    fetchDbFilms().then(setDbFilms);
+  }, []);
+
+  // Build marquee text: DB film titles first, then hardcoded
+  const hardcodedTitles = ["THE LAST REEL", "NOIR ETERNAL", "CYBERPUNK 2088", "ANALOG DREAMS", "KODACHROME HEART"];
+  const dbTitles = dbFilms.map(f => f.title.toUpperCase());
+  const allTitles = [...dbTitles, ...hardcodedTitles];
+  const marqueeText = allTitles.map(t => t + "\u00A0\u00A0•\u00A0\u00A0").join("");
+
   return (
     <div className="w-full">
 
@@ -115,13 +130,12 @@ export function LandingScreen({ setView, onConnect }: LandingScreenProps) {
         </div>
       </header>
 
-      {/* ── MARQUEE TICKER ────────────────────────────────────────────────── */}
       <section className="w-full py-4 rainbow-bg overflow-hidden border-y-2 border-black/10">
         <div
           className="font-headline font-extrabold text-3xl text-white uppercase tracking-tighter whitespace-nowrap inline-block"
           style={{ animation: "marquee 30s linear infinite" }}
         >
-          THE LAST REEL&nbsp;&nbsp;•&nbsp;&nbsp;NOIR ETERNAL&nbsp;&nbsp;•&nbsp;&nbsp;CYBERPUNK 2088&nbsp;&nbsp;•&nbsp;&nbsp;ANALOG DREAMS&nbsp;&nbsp;•&nbsp;&nbsp;KODACHROME HEART&nbsp;&nbsp;•&nbsp;&nbsp;THE LAST REEL&nbsp;&nbsp;•&nbsp;&nbsp;NOIR ETERNAL&nbsp;&nbsp;•&nbsp;&nbsp;CYBERPUNK 2088&nbsp;&nbsp;•&nbsp;&nbsp;ANALOG DREAMS&nbsp;&nbsp;•&nbsp;&nbsp;KODACHROME HEART&nbsp;&nbsp;•&nbsp;&nbsp;
+          {marqueeText}{marqueeText}
         </div>
       </section>
 

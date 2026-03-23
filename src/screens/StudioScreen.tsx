@@ -1,227 +1,539 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import {
-  LayoutDashboard,
-  UploadCloud,
-  Settings,
-  Users,
-  BarChart3,
-  Film,
-  Plus,
-  MoreVertical,
-  ShieldAlert,
-  DollarSign,
-} from "lucide-react";
 import { films } from "../data/mockData";
+import {
+  Film, BarChart3, Users, Settings, Shield, Upload, TrendingUp, DollarSign, Eye, 
+  Layers, Calendar, ChevronRight, LogIn, Save, ShieldAlert, ExternalLink, Download
+} from "lucide-react";
+import type { DbUser, DbFilm } from "../lib/supabase";
+import { fetchFilmmakerFilms, updateUserProfile } from "../lib/auth";
+import { piracyDetections } from "../data/mockData";
 
 interface StudioScreenProps {
   setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  currentUser: DbUser | null;
 }
 
-type StudioTab = "overview" | "projects" | "assets" | "team" | "analytics";
+type StudioTab = "overview" | "projects" | "analytics" | "rights" | "piracy" | "settings";
 
-const myFilms = films.slice(0, 3);
+const tabItems: { id: StudioTab; label: string; icon: typeof Film }[] = [
+  { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "projects", label: "My Films", icon: Film },
+  { id: "analytics", label: "Analytics", icon: TrendingUp },
+  { id: "rights", label: "Rights & Contracts", icon: Layers },
+  { id: "piracy", label: "Piracy", icon: Shield },
+  { id: "settings", label: "Settings", icon: Settings },
+];
 
-export function StudioScreen({ setView }: StudioScreenProps) {
+export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
   const [activeTab, setActiveTab] = useState<StudioTab>("overview");
+  const [dbFilms, setDbFilms] = useState<DbFilm[]>([]);
+  const [displayName, setDisplayName] = useState(currentUser?.display_name || "");
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatar_url || "");
+  const [saving, setSaving] = useState(false);
 
-  const sidebarItems: { id: StudioTab; label: string; icon: React.ReactNode }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-5 w-5 mr-3" /> },
-    { id: "projects", label: "Projects", icon: <Film className="h-5 w-5 mr-3" /> },
-    { id: "assets", label: "Assets", icon: <UploadCloud className="h-5 w-5 mr-3" /> },
-    { id: "team", label: "Team", icon: <Users className="h-5 w-5 mr-3" /> },
-    { id: "analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5 mr-3" /> },
-  ];
+  useEffect(() => {
+    if (currentUser) {
+      fetchFilmmakerFilms(currentUser.id).then(setDbFilms);
+    }
+  }, [currentUser]);
 
-  const statusColors: Record<string, string> = {
-    "In Production": "bg-tertiary/10 text-tertiary",
-    "Post-Production": "bg-secondary/10 text-secondary",
-    "Pre-Production": "bg-outline/10 text-outline",
-    Released: "bg-primary/10 text-primary",
+  const handleSaveSettings = async () => {
+    if (!currentUser) return;
+    setSaving(true);
+    try {
+      await updateUserProfile(currentUser.id, {
+        display_name: displayName || undefined,
+        avatar_url: avatarUrl || undefined,
+      });
+      alert("Profile updated!");
+    } catch (err) {
+      console.error("Failed to update:", err);
+    }
+    setSaving(false);
   };
 
-  return (
-    <div className="w-full pt-16 bg-surface min-h-screen flex flex-col md:flex-row relative">
-      <button
-        onClick={() => setView('landing')}
-        className="fixed top-4 left-4 z-50 flex items-center bg-surface-container-lowest border border-outline-variant px-4 py-2 font-label text-xs uppercase tracking-widest font-bold text-on-surface hover:text-primary hover:border-primary transition-all shadow-sm"
-      >
-        ⬅ Back to Platform
-      </button>
+  const quickStats = [
+    { label: "Total Films", value: (dbFilms.length + 3).toString(), color: "text-primary", icon: Film },
+    { label: "Total Revenue", value: "24,800 CC", color: "text-secondary", icon: DollarSign },
+    { label: "Token Holders", value: "1,247", color: "text-tertiary", icon: Users },
+    { label: "Active Streams", value: "89", color: "text-on-surface", icon: Eye },
+  ];
 
+  return (
+    <div className="flex min-h-screen bg-surface">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-surface-container-lowest border-r border-outline-variant/30 hidden md:flex flex-col h-[calc(100vh-4rem)] sticky top-16">
-        <div className="p-6 border-b border-outline-variant/30">
-          <div className="flex items-center mb-2">
-            <div className="w-10 h-10 bg-primary text-white flex items-center justify-center font-headline font-black text-xl mr-3">
-              S1
+      <aside className="w-64 bg-on-surface text-surface-container-lowest flex flex-col fixed inset-y-0 left-0 z-30">
+        <RainbowStripe className="h-1" />
+        
+        <div className="p-6">
+          <div className="flex items-center mb-8 cursor-pointer" onClick={() => setView("landing")}>
+            <Film className="h-6 w-6 text-primary" />
+            <span className="ml-2 font-headline font-black text-xl tracking-tighter uppercase">
+              Cine<span className="text-primary">Chain</span>
+            </span>
+          </div>
+
+          <div className="flex items-center mb-8 p-3 bg-surface-variant/10 border border-surface-variant/20">
+            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-headline font-bold text-sm mr-3">
+              {currentUser?.display_name ? currentUser.display_name.slice(0, 2).toUpperCase() : (currentUser?.wallet_address ? currentUser.wallet_address.slice(2, 4).toUpperCase() : "??")}
             </div>
-            <div>
-              <h2 className="font-headline font-bold uppercase tracking-tight text-on-surface">Studio One</h2>
-              <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">Creator Dashboard</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-headline font-bold text-sm uppercase tracking-tight truncate">
+                {currentUser?.display_name || (currentUser?.wallet_address ? `0x${currentUser.wallet_address.slice(2, 6)}...${currentUser.wallet_address.slice(-4)}` : "Not Connected")}
+              </p>
+              <p className="font-label text-[10px] uppercase tracking-widest text-outline-variant">Filmmaker</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center px-4 py-3 font-label text-sm uppercase tracking-widest transition-colors text-left ${
-                activeTab === item.id
-                  ? "bg-surface-container text-primary font-bold border-l-4 border-primary"
-                  : "text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+        <nav className="flex-1 px-4 space-y-1">
+          {tabItems.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center px-4 py-3 font-label text-sm uppercase tracking-widest transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-primary text-white font-bold"
+                    : "text-surface-variant hover:text-surface-container-lowest hover:bg-surface-variant/10"
+                }`}
+              >
+                <Icon className="h-4 w-4 mr-3" />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-outline-variant/30 space-y-2">
-          <button
-            onClick={() => setView("revenue")}
-            className="w-full flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label text-sm uppercase tracking-widest"
-          >
-            <DollarSign className="h-5 w-5 mr-3" />
-            Revenue
-          </button>
-          <button
-            onClick={() => setView("piracy")}
-            className="w-full flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label text-sm uppercase tracking-widest"
-          >
-            <ShieldAlert className="h-5 w-5 mr-3" />
-            Piracy
-          </button>
-          <button className="w-full flex items-center px-4 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors font-label text-sm uppercase tracking-widest">
-            <Settings className="h-5 w-5 mr-3" />
-            Settings
+        <div className="p-4 border-t border-surface-variant/20">
+          <Button className="w-full bg-primary text-white" size="sm" onClick={() => setView("submit")}>
+            <Upload className="h-4 w-4 mr-2" />
+            New Upload
+          </Button>
+          <button onClick={() => setView("landing")} className="w-full mt-3 font-label text-[10px] uppercase tracking-widest text-outline-variant hover:text-surface-container-lowest transition-colors text-center py-2">
+            ← Back to Platform
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 sm:p-8 lg:p-12 overflow-y-auto">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-12 border-b-4 border-on-surface pb-6">
-            <div>
-              <h1 className="text-4xl md:text-6xl font-headline font-black uppercase tracking-tighter text-on-surface mb-2">
-                Dashboard
-              </h1>
-              <p className="font-body text-on-surface-variant">
-                Welcome back, Director. You have {myFilms.length} active projects.
-              </p>
+      <main className="flex-1 ml-64 p-8">
+        {/* OVERVIEW */}
+        {activeTab === "overview" && (
+          <div>
+            <div className="flex justify-between items-end mb-8 border-b-2 border-on-surface pb-4">
+              <div>
+                <h1 className="text-4xl font-headline font-black uppercase tracking-tighter mb-2">Studio Dashboard</h1>
+                <p className="font-body text-on-surface-variant">Manage your films, revenue, and distribution.</p>
+              </div>
+              <Button variant="outline" onClick={() => setView("revenue")}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                Revenue Dashboard
+              </Button>
             </div>
-            <Button className="mt-6 sm:mt-0" onClick={() => setView("submit")}>
-              <Plus className="h-5 w-5 mr-2" />
-              New Project
-            </Button>
-          </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-            <div className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform" onClick={() => setView("revenue")}>
-              <RainbowStripe className="absolute top-0 left-0 h-1" />
-              <p className="font-label text-xs uppercase tracking-widest text-outline-variant mb-2">Total Revenue Earned</p>
-              <p className="font-headline font-black text-4xl text-on-surface">142,500 CC</p>
-              <p className="font-body text-sm text-tertiary mt-2 font-bold flex items-center">
-                <BarChart3 className="h-4 w-4 mr-1" /> +12% this month
-              </p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-              <p className="font-label text-xs uppercase tracking-widest text-outline-variant mb-2">Active Backers</p>
-              <p className="font-headline font-black text-4xl text-on-surface">1,204</p>
-              <p className="font-body text-sm text-on-surface-variant mt-2">Across {myFilms.length} projects</p>
-            </div>
-            <div className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform" onClick={() => setView("piracy")}>
-              <div className="absolute top-0 left-0 w-full h-1 bg-secondary" />
-              <p className="font-label text-xs uppercase tracking-widest text-outline-variant mb-2">Piracy Detections</p>
-              <p className="font-headline font-black text-4xl text-on-surface">2</p>
-              <p className="font-body text-sm text-error mt-2 font-bold">1 requires immediate action</p>
-            </div>
-          </div>
-
-          {/* Active Projects */}
-          <div className="mb-12">
-            <h2 className="text-2xl font-headline font-bold uppercase tracking-tight mb-6 flex items-center">
-              <Film className="h-6 w-6 text-primary mr-3" />
-              Active Projects
-            </h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {myFilms.map((project) => {
-                const progress = Math.round((project.fundingRaised / project.fundingGoal) * 100);
-                const statusKey = project.status === "Now Minting" ? "In Production" :
-                  project.status === "Released" ? "Released" : "Pre-Production";
+            <div className="grid grid-cols-4 gap-6 mb-12">
+              {quickStats.map((stat) => {
+                const Icon = stat.icon;
                 return (
-                  <div
-                    key={project.id}
-                    className="bg-surface-container-lowest border border-outline-variant flex flex-col sm:flex-row overflow-hidden shadow-film hover:-translate-y-1 transition-transform group cursor-pointer"
-                    onClick={() => setView("film", project.id)}
-                  >
-                    <div className="w-full sm:w-48 h-48 sm:h-auto bg-surface-container relative">
-                      <img
-                        src={project.image}
-                        alt={project.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute top-2 left-2">
-                        <span className={`font-label text-[10px] uppercase tracking-widest px-2 py-1 font-bold ${statusColors[statusKey] || "bg-outline/10 text-outline"}`}>
-                          {project.status}
-                        </span>
-                      </div>
+                  <div key={stat.label} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden">
+                    <RainbowStripe className="absolute top-0 left-0 h-1" />
+                    <div className="flex items-center justify-between mb-4">
+                      <Icon className={`h-5 w-5 ${stat.color}`} />
                     </div>
-                    <div className="p-6 flex-1 flex flex-col justify-between relative">
-                      <button className="absolute top-4 right-4 text-outline hover:text-on-surface transition-colors" onClick={(e) => e.stopPropagation()}>
-                        <MoreVertical className="h-5 w-5" />
-                      </button>
-                      <div>
-                        <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-2 pr-6">
-                          {project.title}
-                        </h3>
-                        <p className="font-body text-sm text-on-surface-variant mb-6">
-                          {project.backers} backers · {project.genre}
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex justify-between items-end mb-2">
-                          <span className="font-label text-xs uppercase tracking-widest text-outline-variant">Funding</span>
-                          <span className="font-headline font-bold text-sm text-on-surface">{progress}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-surface-container-high overflow-hidden">
-                          <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${progress}%` }} />
-                        </div>
-                      </div>
-                    </div>
+                    <p className={`font-headline font-black text-3xl ${stat.color}`}>{stat.value}</p>
+                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mt-1">{stat.label}</p>
                   </div>
                 );
               })}
             </div>
-          </div>
 
-          {/* Quick links */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: "Revenue Dashboard", icon: <DollarSign className="h-5 w-5" />, view: "revenue" },
-              { label: "Piracy Alerts", icon: <ShieldAlert className="h-5 w-5" />, view: "piracy" },
-              { label: "Submit New Film", icon: <Plus className="h-5 w-5" />, view: "submit" },
-              { label: "Governance", icon: <BarChart3 className="h-5 w-5" />, view: "governance" },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={() => setView(item.view)}
-                className="flex flex-col items-center p-6 bg-surface-container-lowest border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all duration-200 shadow-film group"
-              >
-                <div className="text-primary mb-3 group-hover:scale-110 transition-transform">{item.icon}</div>
-                <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant text-center">{item.label}</span>
-              </button>
-            ))}
+            {/* Recent Films */}
+            <h2 className="text-2xl font-headline font-bold uppercase tracking-tight mb-6 border-b-2 border-on-surface pb-3">
+              Recent Projects
+            </h2>
+            <div className="space-y-4">
+              {dbFilms.slice(0, 3).map((film) => (
+                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-4 flex items-center shadow-film hover:shadow-film-hover transition-all duration-300">
+                  <img src={film.poster_url || `https://picsum.photos/seed/${film.id}/100/60`} alt={film.title} className="w-20 h-14 object-cover mr-4" referrerPolicy="no-referrer" />
+                  <div className="flex-1">
+                    <h3 className="font-headline font-bold uppercase tracking-tight">{film.title}</h3>
+                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{film.upload_status} · {film.genre || "Independent"}</p>
+                  </div>
+                  <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                    film.upload_status === "live" ? "bg-tertiary/10 text-tertiary" : "bg-outline/10 text-outline"
+                  }`}>
+                    {film.upload_status}
+                  </span>
+                </div>
+              ))}
+              {films.slice(0, 3).map((film) => (
+                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-4 flex items-center shadow-film hover:shadow-film-hover transition-all duration-300">
+                  <img src={film.image} alt={film.title} className="w-20 h-14 object-cover mr-4" referrerPolicy="no-referrer" />
+                  <div className="flex-1">
+                    <h3 className="font-headline font-bold uppercase tracking-tight">{film.title}</h3>
+                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{film.status} · {film.genre}</p>
+                  </div>
+                  <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                    film.status === "Funded" ? "bg-tertiary/10 text-tertiary" :
+                    film.status === "Now Minting" ? "bg-primary/10 text-primary" :
+                    "bg-secondary/10 text-secondary"
+                  }`}>
+                    {film.status}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* MY FILMS */}
+        {activeTab === "projects" && (
+          <div>
+            <div className="flex justify-between items-end mb-8 border-b-2 border-on-surface pb-4">
+              <h1 className="text-4xl font-headline font-black uppercase tracking-tighter">My Films</h1>
+              <Button onClick={() => setView("submit")}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload New Film
+              </Button>
+            </div>
+
+            {/* DB Films first */}
+            {dbFilms.length > 0 && (
+              <div className="mb-8">
+                <h3 className="font-label text-xs uppercase tracking-widest text-primary font-bold mb-4">Your Uploads</h3>
+                <div className="space-y-4">
+                  {dbFilms.map((film) => (
+                    <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                      <div className="flex items-center">
+                        <img src={film.poster_url || `https://picsum.photos/seed/${film.id}/120/80`} alt={film.title} className="w-28 h-20 object-cover mr-6" referrerPolicy="no-referrer" />
+                        <div className="flex-1">
+                          <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">{film.title}</h3>
+                          <p className="font-body text-sm text-on-surface-variant mb-2">{film.description || "No description"}</p>
+                          <div className="flex gap-4 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                            <span>Dir: {film.director || "—"}</span>
+                            <span>Year: {film.year || "—"}</span>
+                            <span>Genre: {film.genre || "—"}</span>
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                          <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                            film.upload_status === "live" ? "bg-tertiary/10 text-tertiary" :
+                            film.upload_status === "processing" ? "bg-secondary/10 text-secondary" :
+                            "bg-outline/10 text-outline"
+                          }`}>
+                            {film.upload_status}
+                          </span>
+                          <p className="font-label text-[10px] text-outline-variant mt-2 uppercase tracking-widest">
+                            {new Date(film.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mock films */}
+            <h3 className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-4">All Projects</h3>
+            <div className="space-y-4">
+              {films.map((film) => (
+                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film">
+                  <div className="flex items-center">
+                    <img src={film.image} alt={film.title} className="w-28 h-20 object-cover mr-6" referrerPolicy="no-referrer" />
+                    <div className="flex-1">
+                      <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">{film.title}</h3>
+                      <p className="font-body text-sm text-on-surface-variant mb-2">{film.synopsis.substring(0, 100)}...</p>
+                      <div className="flex gap-4 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                        <span>Dir: {film.director}</span>
+                        <span>Year: {film.year}</span>
+                        <span>Genre: {film.genre}</span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                        film.status === "Funded" ? "bg-tertiary/10 text-tertiary" :
+                        film.status === "Now Minting" ? "bg-primary/10 text-primary" :
+                        "bg-secondary/10 text-secondary"
+                      }`}>
+                        {film.status}
+                      </span>
+                      <p className="font-headline font-bold text-lg mt-2 text-primary">{film.fundingRaised.toLocaleString()} CC</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {dbFilms.length === 0 && (
+              <div className="text-center py-12 bg-surface-container-lowest border border-outline-variant shadow-film mt-8">
+                <Upload className="h-12 w-12 text-outline-variant mx-auto mb-4" />
+                <p className="font-headline font-bold text-xl uppercase tracking-tight text-on-surface-variant mb-2">No uploads yet</p>
+                <p className="font-body text-sm text-on-surface-variant mb-4">Submit your first film to see it listed here.</p>
+                <Button onClick={() => setView("submit")}>Submit a Film</Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ANALYTICS */}
+        {activeTab === "analytics" && (
+          <div>
+            <h1 className="text-4xl font-headline font-black uppercase tracking-tighter mb-8 border-b-2 border-on-surface pb-4">
+              Analytics
+            </h1>
+
+            <div className="grid grid-cols-3 gap-6 mb-12">
+              {[
+                { label: "Total Views", value: "12,847", change: "+18%", color: "text-primary" },
+                { label: "Token Sales", value: "342", change: "+7%", color: "text-secondary" },
+                { label: "Revenue (30d)", value: "8,420 CC", change: "+24%", color: "text-tertiary" },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden">
+                  <RainbowStripe className="absolute top-0 left-0 h-1" />
+                  <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-2">{stat.label}</p>
+                  <div className="flex items-end justify-between">
+                    <p className={`font-headline font-black text-3xl ${stat.color}`}>{stat.value}</p>
+                    <span className="font-label text-xs uppercase tracking-widest text-tertiary font-bold">{stat.change}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Monthly chart placeholder */}
+            <div className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden mb-8">
+              <RainbowStripe className="absolute top-0 left-0 h-1" />
+              <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6">Revenue Over Time</h3>
+              <div className="flex items-end h-48 gap-3">
+                {[35, 52, 41, 68, 55, 72, 61, 85, 78, 92, 88, 95].map((val, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    <div className="w-full bg-primary/80 hover:bg-primary transition-colors rounded-t" style={{ height: `${val}%` }} />
+                    <span className="font-label text-[10px] text-on-surface-variant mt-2">
+                      {["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"][i]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top performing tokens */}
+            <div className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden">
+              <RainbowStripe className="absolute top-0 left-0 h-1" />
+              <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6">Top Performing Tokens</h3>
+              <div className="space-y-4">
+                {[
+                  { film: "Neon Dreams", type: "Collector", sold: 142, revenue: "5,680 CC" },
+                  { film: "The Last Heist", type: "Ownership", sold: 89, revenue: "8,900 CC" },
+                  { film: "Concrete Jungle", type: "Rental", sold: 312, revenue: "3,120 CC" },
+                ].map((item) => (
+                  <div key={item.film} className="flex items-center p-4 border border-outline-variant/50 hover:border-on-surface transition-colors">
+                    <div className="flex-1">
+                      <h4 className="font-headline font-bold uppercase tracking-tight">{item.film}</h4>
+                      <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{item.type} Tokens</p>
+                    </div>
+                    <div className="text-center px-6">
+                      <p className="font-headline font-bold text-lg">{item.sold}</p>
+                      <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Sold</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-headline font-bold text-lg text-primary">{item.revenue}</p>
+                      <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Revenue</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* RIGHTS & CONTRACTS */}
+        {activeTab === "rights" && (
+          <div>
+            <h1 className="text-4xl font-headline font-black uppercase tracking-tighter mb-8 border-b-2 border-on-surface pb-4">
+              Rights & Contracts
+            </h1>
+
+            <div className="space-y-6">
+              {films.slice(0, 3).map((film) => (
+                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden">
+                  <RainbowStripe className="absolute top-0 left-0 h-1" />
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-1">{film.title}</h3>
+                      <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">Content ID: {film.id}</p>
+                    </div>
+                    <span className="px-3 py-1 font-label text-xs uppercase tracking-widest font-bold bg-tertiary/10 text-tertiary">
+                      Active
+                    </span>
+                  </div>
+
+                  <h4 className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-4">Revenue Split (On-Chain)</h4>
+                  <div className="space-y-3 mb-6">
+                    {[
+                      { party: "Director", pct: film.revenueSplit.director, color: "bg-primary" },
+                      { party: "Producer", pct: film.revenueSplit.producer, color: "bg-secondary" },
+                      { party: "Crew", pct: film.revenueSplit.crew, color: "bg-tertiary" },
+                      { party: "Protocol", pct: film.revenueSplit.protocol, color: "bg-outline-variant" },
+                    ].map((item) => (
+                      <div key={item.party} className="flex items-center gap-4">
+                        <span className="w-24 font-label text-xs uppercase tracking-widest text-on-surface-variant">{item.party}</span>
+                        <div className="flex-1 h-2 bg-surface-container-high overflow-hidden">
+                          <div className={`h-full ${item.color}`} style={{ width: `${item.pct}%` }} />
+                        </div>
+                        <span className="font-headline font-bold w-12 text-right">{item.pct}%</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-4 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                    <span>Territory: Global</span>
+                    <span>Duration: Perpetual</span>
+                    <span>Resale Royalty: 10%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PIRACY */}
+        {activeTab === "piracy" && (
+          <div>
+            <div className="flex items-center justify-between mb-8 border-b-2 border-on-surface pb-4">
+              <h1 className="text-4xl font-headline font-black uppercase tracking-tighter flex items-center">
+                <ShieldAlert className="h-8 w-8 text-error mr-3" />
+                Piracy Detections
+              </h1>
+              <Button variant="outline" size="sm" onClick={() => alert("Forensic report exported!")}>
+                <Download className="h-4 w-4 mr-2" />
+                Export Report
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              {[
+                { label: "Active", value: piracyDetections.filter(d => d.status !== "Resolved").length.toString(), color: "text-error" },
+                { label: "Resolved", value: piracyDetections.filter(d => d.status === "Resolved").length.toString(), color: "text-tertiary" },
+                { label: "Films Monitored", value: "6", color: "text-on-surface" },
+              ].map((s) => (
+                <div key={s.label} className="bg-surface-container-lowest border border-outline-variant p-6 text-center shadow-film">
+                  <p className={`font-headline font-black text-3xl ${s.color}`}>{s.value}</p>
+                  <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-4">
+              {piracyDetections.map((detection) => (
+                <div key={detection.id} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film flex items-center">
+                  <img src={detection.filmImage} alt={detection.filmTitle} className="w-16 h-12 object-cover mr-4" referrerPolicy="no-referrer" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-headline font-bold uppercase tracking-tight">{detection.filmTitle}</h3>
+                    <p className="font-mono text-xs text-on-surface-variant truncate">{detection.sourceUrl}</p>
+                  </div>
+                  <div className="flex items-center gap-3 ml-4">
+                    <span className={`px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                      detection.severity === "High" ? "bg-error/10 text-error" :
+                      detection.severity === "Medium" ? "bg-tertiary/10 text-tertiary" :
+                      "bg-surface-container text-outline"
+                    }`}>
+                      {detection.severity}
+                    </span>
+                    <span className={`px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                      detection.status === "Resolved" ? "bg-tertiary/10 text-tertiary" :
+                      detection.status === "DMCA Sent" ? "bg-secondary/10 text-secondary" :
+                      "bg-error/10 text-error"
+                    }`}>
+                      {detection.status}
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => alert("DMCA notice sent!")}>
+                      Send DMCA
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {activeTab === "settings" && (
+          <div>
+            <h1 className="text-4xl font-headline font-black uppercase tracking-tighter mb-8 border-b-2 border-on-surface pb-4">
+              Settings
+            </h1>
+
+            <div className="max-w-2xl">
+              <div className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden mb-8">
+                <RainbowStripe className="absolute top-0 left-0 h-1" />
+                <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6">Profile</h3>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Wallet Address</label>
+                    <p className="font-mono text-sm bg-surface-container-low border border-outline-variant p-3 text-on-surface-variant">
+                      {currentUser?.wallet_address || "Not connected"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Display Name</label>
+                    <input
+                      value={displayName}
+                      onChange={e => setDisplayName(e.target.value)}
+                      placeholder="Enter your display name..."
+                      className="w-full bg-surface-container-low border border-outline-variant p-3 font-body text-on-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Avatar URL</label>
+                    <input
+                      value={avatarUrl}
+                      onChange={e => setAvatarUrl(e.target.value)}
+                      placeholder="https://example.com/avatar.png"
+                      className="w-full bg-surface-container-low border border-outline-variant p-3 font-body text-on-surface focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <Button onClick={handleSaveSettings} disabled={saving}>
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden">
+                <RainbowStripe className="absolute top-0 left-0 h-1" />
+                <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6">Account</h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">CineCredit Balance</span>
+                    <span className="font-headline font-bold text-lg text-primary">{currentUser?.credit_balance?.toLocaleString() || 0} CC</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">CinePass Tier</span>
+                    <span className="font-headline font-bold">{currentUser?.cinepass_tier ? currentUser.cinepass_tier.charAt(0).toUpperCase() + currentUser.cinepass_tier.slice(1) : "None"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">KYC Status</span>
+                    <span className={`font-label text-xs uppercase tracking-widest font-bold ${
+                      currentUser?.kyc_status === "approved" ? "text-tertiary" : "text-outline"
+                    }`}>
+                      {currentUser?.kyc_status || "None"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">Member Since</span>
+                    <span className="font-body text-sm">{currentUser?.created_at ? new Date(currentUser.created_at).toLocaleDateString() : "—"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

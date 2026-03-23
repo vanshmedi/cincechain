@@ -4,9 +4,11 @@ import { uploadFilm } from "../lib/auth";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { Upload, Camera, Info, Plus, Minus } from "lucide-react";
+import type { DbUser } from "../lib/supabase";
 
 interface SubmitScreenProps {
   setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  currentUser: DbUser | null;
 }
 
 interface RecipientSplit {
@@ -16,7 +18,8 @@ interface RecipientSplit {
 
 const PROTOCOL_FEE = 5;
 
-export function SubmitScreen({ setView }: SubmitScreenProps) {
+export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
+  const [genre, setGenre] = useState("");
   const [title, setTitle] = useState("");
   const [director, setDirector] = useState("");
   const [year, setYear] = useState("");
@@ -61,11 +64,22 @@ export function SubmitScreen({ setView }: SubmitScreenProps) {
   const handleRegister = async () => {
     setStep("minting");
     try {
+      const revenueSplit: Record<string, number> = {};
+      recipients.forEach(r => {
+        if (r.name) revenueSplit[r.name.toLowerCase()] = r.pct;
+      });
+      revenueSplit.protocol = PROTOCOL_FEE;
+
       await uploadFilm({
         title,
         description: synopsis,
+        director,
+        year: year ? parseInt(year) : undefined,
+        genre: genre || undefined,
+        filmakerId: currentUser?.id,
+        revenueSplit,
       });
-      setView("studio");
+      setStep("done");
     } catch (e) {
       console.error(e);
       setStep("done");

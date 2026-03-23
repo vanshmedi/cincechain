@@ -1,194 +1,224 @@
-import { useState } from "react";
-import { Button } from "../components/ui/Button";
+import { useState, useEffect } from "react";
 import { Polaroid } from "../components/ui/Polaroid";
-import { PlayCircle, RefreshCw, Filter, Star, Award } from "lucide-react";
-import { films } from "../data/mockData";
+import { RainbowStripe } from "../components/ui/RainbowStripe";
+import { Button } from "../components/ui/Button";
+import { Filter, SlidersHorizontal, ArrowUpRight, AlertCircle, Star, Hexagon } from "lucide-react";
+import { films as mockFilms, type Film } from "../data/mockData";
+import type { DbFilm } from "../lib/supabase";
+import { fetchDbFilms } from "../lib/auth";
 
 interface GalleryScreenProps {
   setView: (view: string, filmId?: number, curatorHandle?: string) => void;
 }
 
-type FilterType = "All" | "Now Minting" | "Funded" | "Released" | "Sci-Fi" | "Drama" | "Documentary";
+const genres = ["All", "Sci-Fi", "Crime", "Drama", "Documentary", "Horror", "Fantasy"];
+const statuses = ["All", "Now Minting", "Funded", "In Production", "Released"];
 
 export function GalleryScreen({ setView }: GalleryScreenProps) {
-  const [activeFilter, setActiveFilter] = useState<FilterType>("All");
+  const [selectedGenre, setSelectedGenre] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [dbFilms, setDbFilms] = useState<DbFilm[]>([]);
 
-  const filters: FilterType[] = ["All", "Now Minting", "Funded", "Released", "Sci-Fi", "Drama", "Documentary"];
+  useEffect(() => {
+    fetchDbFilms().then(setDbFilms);
+  }, []);
 
-  const filteredFilms = films.filter((film) => {
-    if (activeFilter === "All") return true;
-    if (activeFilter === "Now Minting" || activeFilter === "Funded" || activeFilter === "Released") {
-      return film.status === activeFilter;
-    }
-    return film.genre === activeFilter;
-  });
+  const filteredMock = mockFilms.filter(
+    (film) =>
+      (selectedGenre === "All" || film.genre === selectedGenre) &&
+      (selectedStatus === "All" || film.status === selectedStatus)
+  );
 
-  const featured = films[0]; // The Silent Echo
+  // Convert DB films to a common display structure
+  const dbFilmCards = dbFilms.filter(
+    (f) =>
+      (selectedGenre === "All" || f.genre === selectedGenre) &&
+      (selectedStatus === "All" || selectedStatus === "Now Minting") // DB films default to "live" status
+  );
+
+  // Featured film (first DB film if available, otherwise first mock)
+  const featured = dbFilmCards.length > 0 ? null : mockFilms[0];
 
   return (
-    <div className="w-full pt-16">
-      {/* Featured Film Hero */}
-      <section className="relative w-full h-[70vh] bg-on-surface overflow-hidden flex items-end pb-16">
-        <div className="absolute inset-0 z-0">
-          <img
-            src={featured.image}
-            alt={featured.title}
-            className="w-full h-full object-cover opacity-40 mix-blend-luminosity"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-on-surface via-on-surface/50 to-transparent" />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-          <div className="flex flex-col md:flex-row justify-between items-end">
-            <div className="max-w-3xl">
-              {/* Festival badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {featured.festivalBadges.map((badge) => (
-                  <span key={badge} className="inline-flex items-center bg-primary text-white font-label text-xs uppercase tracking-widest px-3 py-1 font-bold">
-                    <Award className="h-3 w-3 mr-1" />
-                    {badge}
-                  </span>
-                ))}
-                {featured.curatorEndorsed && (
-                  <span className="inline-flex items-center bg-secondary text-white font-label text-xs uppercase tracking-widest px-3 py-1 font-bold">
-                    <Star className="h-3 w-3 mr-1" />
-                    Curator Endorsed
-                  </span>
-                )}
-              </div>
-              <div className="inline-flex items-center space-x-2 bg-primary px-3 py-1 mb-6 text-white font-label text-xs uppercase tracking-widest font-bold">
-                <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                Now Minting
-              </div>
-              <h1 className="text-6xl md:text-8xl font-headline font-black uppercase tracking-tighter text-surface-container-lowest leading-none mb-4">
-                {featured.title}
-              </h1>
-              <p className="text-xl font-body text-surface-variant mb-8 max-w-2xl">
-                {featured.synopsis.substring(0, 120)}...
-              </p>
-              <div className="flex space-x-4">
-                <Button size="lg" className="group" onClick={() => setView("film", featured.id)}>
-                  <PlayCircle className="mr-2 h-5 w-5" />
-                  View Film
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="border-surface-container-lowest text-surface-container-lowest hover:bg-surface-container-lowest hover:text-on-surface"
-                  onClick={() => setView("film", featured.id)}
-                >
-                  Mint Access
-                </Button>
-              </div>
-            </div>
-            <div className="hidden md:block text-right mt-8 md:mt-0">
-              <p className="font-label text-sm uppercase tracking-widest text-outline-variant mb-2">Funding Goal</p>
-              <p className="font-headline font-black text-4xl text-surface-container-lowest">
-                {Math.round((featured.fundingRaised / featured.fundingGoal) * 100)}%
-              </p>
-              <div className="w-48 h-2 bg-surface-variant/20 mt-2">
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${Math.round((featured.fundingRaised / featured.fundingGoal) * 100)}%` }}
-                />
-              </div>
-              <p className="font-label text-xs mt-2 text-outline-variant uppercase tracking-widest">
-                {featured.backers} backers
-              </p>
-            </div>
+    <div className="w-full pt-16 bg-surface min-h-screen">
+      {/* Header */}
+      <div className="w-full bg-on-surface pt-20 pb-16 relative overflow-hidden">
+        <RainbowStripe className="absolute top-0 left-0 h-3 w-full" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="inline-flex items-center space-x-2 bg-surface-variant/10 border border-surface-variant/20 px-4 py-2 mb-6">
+            <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <span className="font-label text-xs uppercase tracking-widest text-outline-variant">
+              {mockFilms.length + dbFilmCards.length} Films Available
+            </span>
           </div>
-        </div>
-      </section>
-
-      {/* Filter Bar */}
-      <div className="sticky top-16 z-30 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div className="flex space-x-6 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`font-label text-sm uppercase tracking-widest whitespace-nowrap transition-colors pb-1 ${
-                  activeFilter === filter
-                    ? "text-primary font-bold border-b-2 border-primary"
-                    : "text-on-surface-variant hover:text-on-surface"
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-          <button className="hidden md:flex items-center font-label text-sm uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors" onClick={(e) => { e.preventDefault(); alert('Global search and advanced filtering indexing is currently in progress.'); }}>
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </button>
+          <h1 className="text-6xl md:text-8xl font-headline font-black uppercase tracking-tighter text-surface-container-lowest mb-6">
+            The Gallery
+          </h1>
+          <p className="text-xl font-body text-surface-variant max-w-2xl">
+            Browse the collective's cinema catalog. Fund new projects, purchase tokens, and access decentralized films.
+          </p>
         </div>
       </div>
 
-      {/* Gallery Grid */}
-      <section className="py-16 bg-surface">
+      {/* Filter bar */}
+      <div className="bg-surface-container border-b border-outline-variant/30 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-            {filteredFilms.map((film) => (
-              <div
-                key={film.id}
-                className="cursor-pointer group relative"
-                onClick={() => setView("film", film.id)}
-              >
-                {/* Festival badge overlay */}
-                {film.festivalBadges.length > 0 && (
-                  <div className="absolute top-2 left-2 z-10 bg-primary text-white font-label text-xs uppercase tracking-widest px-2 py-1 font-bold flex items-center">
-                    <Award className="h-3 w-3 mr-1" />
-                    {film.festivalBadges[0]}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center mr-4">
+              <Filter className="h-4 w-4 text-on-surface-variant mr-2" />
+              <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold">Filters:</span>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {genres.map((genre) => (
+                <button
+                  key={genre}
+                  onClick={() => setSelectedGenre(genre)}
+                  className={`font-label text-[11px] uppercase tracking-widest px-3 py-1.5 transition-all ${
+                    selectedGenre === genre
+                      ? "bg-on-surface text-surface font-bold shadow-hard"
+                      : "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:border-on-surface"
+                  }`}
+                >
+                  {genre}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-6 bg-outline-variant/50 hidden md:block" />
+            <div className="flex gap-2 flex-wrap">
+              {statuses.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
+                  className={`font-label text-[11px] uppercase tracking-widest px-3 py-1.5 transition-all ${
+                    selectedStatus === status
+                      ? "bg-on-surface text-surface font-bold shadow-hard"
+                      : "bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:border-on-surface"
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Featured film */}
+        {featured && (
+          <div
+            className="mb-16 bg-on-surface text-surface-container-lowest p-8 md:p-12 shadow-film relative overflow-hidden cursor-pointer group"
+            onClick={() => setView("film", featured.id)}
+          >
+            <RainbowStripe className="absolute top-0 left-0 h-2" />
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="md:w-1/2 aspect-video bg-surface-container overflow-hidden">
+                <img src={featured.image} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+              </div>
+              <div className="md:w-1/2 flex flex-col justify-center">
+                <div className="flex gap-3 items-center mb-4">
+                  <span className="px-3 py-1 font-label text-xs uppercase tracking-widest font-bold bg-primary text-white">{featured.status}</span>
+                  {featured.curatorEndorsed && (
+                    <span className="flex items-center px-2 py-1 font-label text-xs uppercase tracking-widest text-secondary">
+                      <Star className="h-3 w-3 mr-1" fill="currentColor" />
+                      Curator Pick
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-4xl md:text-5xl font-headline font-black uppercase tracking-tighter mb-3">{featured.title}</h2>
+                <p className="font-body text-surface-variant mb-6">{featured.synopsis.substring(0, 150)}...</p>
+                <div className="flex gap-6">
+                  <div>
+                    <p className="font-headline font-black text-2xl text-primary">{featured.fundingRaised.toLocaleString()} CC</p>
+                    <p className="font-label text-xs uppercase tracking-widest text-outline-variant">Raised</p>
                   </div>
-                )}
-                {/* Curator badge overlay */}
-                {film.curatorEndorsed && (
-                  <div className="absolute top-2 right-2 z-10 bg-secondary text-white font-label text-xs uppercase tracking-widest px-2 py-1 font-bold flex items-center">
-                    <Star className="h-3 w-3 mr-1" />
-                    Curated
+                  <div>
+                    <p className="font-headline font-black text-2xl">{featured.backers}</p>
+                    <p className="font-label text-xs uppercase tracking-widest text-outline-variant">Backers</p>
                   </div>
-                )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* DB Films on top */}
+        {dbFilmCards.length > 0 && (
+          <div className="mb-12">
+            <div className="flex items-center mb-6 border-b-2 border-primary pb-3">
+              <Hexagon className="h-5 w-5 text-primary mr-2" />
+              <h3 className="text-2xl font-headline font-bold uppercase tracking-tight text-primary">Community Uploads</h3>
+              <span className="ml-auto font-label text-xs uppercase tracking-widest text-on-surface-variant">{dbFilmCards.length} films</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+              {dbFilmCards.map((film) => (
+                <div key={film.id} className="group cursor-pointer" onClick={() => setView("gallery")}>
+                  <Polaroid
+                    imageUrl={film.poster_url || `https://picsum.photos/seed/${film.id}/400/300`}
+                    title={film.title}
+                    subtitle={`${film.director || "Unknown"} · ${film.year || "TBD"} · ${film.genre || "Independent"}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Mock Films Grid */}
+        <div className="flex items-center justify-between mb-8 border-b-2 border-on-surface pb-3">
+          <h3 className="text-2xl font-headline font-bold uppercase tracking-tight">All Films</h3>
+          <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{filteredMock.length} films</span>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredMock.map((film) => (
+            <div key={film.id} className="group cursor-pointer" onClick={() => setView("film", film.id)}>
+              <div className="relative">
                 <Polaroid
                   imageUrl={film.image}
                   title={film.title}
-                  subtitle={`${film.genre} · ${film.year}`}
-                  className="group-hover:-translate-y-2 transition-transform duration-300"
+                  subtitle={`${film.director} · ${film.year} · ${film.genre}`}
                 />
-                <div className="mt-3 flex justify-between items-center px-1">
-                  <span className={`inline-block px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${
-                    film.status === "Now Minting" ? "bg-primary/10 text-primary" :
-                    film.status === "Funded" ? "bg-tertiary/10 text-tertiary" :
-                    "bg-surface-container text-on-surface-variant"
+                <div className="absolute top-6 left-6 flex gap-2">
+                  <span className={`px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${
+                    film.status === "Now Minting" ? "bg-primary text-white" :
+                    film.status === "Funded" ? "bg-tertiary text-white" :
+                    film.status === "Released" ? "bg-secondary text-white" :
+                    "bg-on-surface text-surface"
                   }`}>
                     {film.status}
                   </span>
-                  <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">
-                    From {film.tokens.rental.price} CC
-                  </span>
+                  {film.curatorEndorsed && (
+                    <span className="px-2 py-1 font-label text-xs uppercase tracking-widest font-bold bg-secondary/90 text-white flex items-center">
+                      <Star className="h-3 w-3 mr-1" fill="currentColor" />
+                      Pick
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-
-          {filteredFilms.length === 0 && (
-            <div className="text-center py-24">
-              <p className="font-headline font-bold text-3xl uppercase tracking-tight text-on-surface-variant mb-2">
-                No films match "{activeFilter}"
-              </p>
-              <Button variant="outline" onClick={() => setActiveFilter("All")}>Show All</Button>
             </div>
-          )}
+          ))}
+        </div>
 
-          <div className="mt-20 text-center">
-            <Button variant="outline" size="lg" className="group" onClick={(e) => { e.preventDefault(); alert('Global search and advanced filtering indexing is currently in progress.'); }}>
-              <RefreshCw className="mr-2 h-5 w-5 group-hover:rotate-180 transition-transform duration-500" />
-              Load More
+        {filteredMock.length === 0 && dbFilmCards.length === 0 && (
+          <div className="text-center py-16 bg-surface-container-lowest border border-outline-variant">
+            <AlertCircle className="h-12 w-12 text-outline-variant mx-auto mb-4" />
+            <p className="font-headline font-bold text-xl uppercase tracking-tight text-on-surface-variant mb-2">No films found</p>
+            <p className="font-body text-sm text-on-surface-variant mb-4">
+              Try adjusting your filters.
+            </p>
+            <Button variant="outline" onClick={() => { setSelectedGenre("All"); setSelectedStatus("All"); }}>
+              Reset Filters
             </Button>
           </div>
+        )}
+
+        <div className="mt-12 text-center">
+          <Button variant="outline" size="lg" onClick={() => alert('More films loading...')}>
+            Load More Films
+          </Button>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

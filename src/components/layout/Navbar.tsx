@@ -1,5 +1,5 @@
 import { RainbowStripe } from "../ui/RainbowStripe";
-import { Film, Wallet, User, Search, Menu, X } from "lucide-react";
+import { Film, Wallet, User, Menu, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useState } from "react";
 
@@ -26,10 +26,7 @@ export function Navbar({
     { id: "landing", label: "Home" },
     { id: "gallery", label: "Gallery" },
     { id: "market", label: "Market" },
-    { id: "pass", label: "CinePass" },
     { id: "community", label: "Community" },
-    { id: "governance", label: "Govern" },
-    { id: "submit", label: "Submit" },
     { id: "studio", label: "Studio" },
   ];
 
@@ -65,7 +62,6 @@ export function Navbar({
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* CineCredit balance — shown when wallet connected */}
             {walletAddress && (
               <div className="hidden md:flex items-center bg-primary/10 border border-primary/30 px-3 py-1.5">
                 <span className="font-headline font-black text-sm text-primary">
@@ -73,8 +69,7 @@ export function Navbar({
                 </span>
               </div>
             )}
-            <button className="text-on-surface-variant hover:text-primary transition-colors" onClick={(e) => { e.preventDefault(); alert('Global search and advanced filtering indexing is currently in progress.'); }}>
-              <Search className="h-5 w-5" />
+            <button className="text-on-surface-variant hover:text-primary transition-colors" onClick={(e) => { e.preventDefault(); }}>
             </button>
             {walletAddress ? (
               <div className="flex items-center space-x-3">
@@ -101,7 +96,6 @@ export function Navbar({
                 Connect
               </button>
             )}
-            {/* Mobile hamburger */}
             <button
               className="md:hidden text-on-surface-variant hover:text-primary transition-colors"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -112,11 +106,10 @@ export function Navbar({
         </div>
       </div>
 
-      {/* Mobile Dropdown Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-surface-container-lowest border-t border-outline-variant/30 py-2 shadow-film absolute w-full left-0">
           <ul className="flex flex-col space-y-1 px-4">
-            {["Gallery", "Vault", "Studio"].map((label) => (
+            {["Gallery", "Vault", "Community", "Studio"].map((label) => (
               <li key={label}>
                 <button
                   onClick={() => {

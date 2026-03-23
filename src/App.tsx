@@ -24,7 +24,6 @@ import { SubmitScreen } from "./screens/SubmitScreen";
 import { StudioScreen } from "./screens/StudioScreen";
 import { FilmPage } from "./screens/FilmPage";
 import { TokenPurchaseFlow } from "./screens/TokenPurchaseFlow";
-import { CinePassScreen } from "./screens/CinePassScreen";
 import { GovernanceScreen } from "./screens/GovernanceScreen";
 import { MarketScreen } from "./screens/MarketScreen";
 import { PiracyScreen } from "./screens/PiracyScreen";
@@ -42,7 +41,7 @@ export default function App() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [isRehydrating, setIsRehydrating] = useState(true);
 
-  // Derived convenience values — keeps all child prop signatures unchanged
+  // Derived convenience values
   const walletAddress = currentUser?.wallet_address ?? null;
   const cineCredits   = currentUser?.credit_balance ?? 0;
 
@@ -72,14 +71,13 @@ export default function App() {
   const [purchaseTier, setPurchaseTier] = useState<string>("");
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
 
-  // Unified navigation handler — handles both simple views and views that need data
+  // Unified navigation handler
   const navigate = (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => {
     if (filmId !== undefined) setSelectedFilmId(filmId);
     if (curatorHandle !== undefined) setSelectedCuratorHandle(curatorHandle);
     if (marketItemId !== undefined) {
       setSelectedMarketItem(marketItemId);
     } else if (view !== "market") {
-      // Clear missing states when navigating away
       setSelectedMarketItem(null);
     }
     
@@ -87,7 +85,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /** Called by WalletConnectModal with the real Supabase DbUser row */
   const handleWalletConnect = (user: DbUser) => {
     setCurrentUser(user);
     setShowWalletModal(false);
@@ -115,15 +112,13 @@ export default function App() {
     try {
       const updatedUser = await purchaseFilmToken(
         currentUser.id,
-        purchaseFilmId.toString(), // Assuming filmId here matches DB UUID string for now
+        purchaseFilmId.toString(),
         purchaseTier.toLowerCase() as any,
         price
       );
       setCurrentUser(updatedUser);
-      // Keep modal open to show confirmation; close is handled inside TokenPurchaseFlow
     } catch (err) {
       console.error("[App] Purchase failed:", err);
-      // You could set an error state here to show a toast/alert
     }
   };
 
@@ -136,7 +131,7 @@ export default function App() {
       const updatedUser = await subscribeToCinePass(currentUser.id, tier, bonus);
       setCurrentUser(updatedUser);
       alert(`Success! Simulated fiat payment complete. Added ${bonus} CC to your balance.`);
-      navigate("landing");
+      navigate("vault");
     } catch (err) {
       console.error("[App] Subscription failed:", err);
       alert("Subscription failed. Check console.");
@@ -149,7 +144,6 @@ export default function App() {
     <div className="min-h-screen flex flex-col relative selection:bg-primary selection:text-white">
       <GrainOverlay />
 
-      {/* Wallet Connect Modal */}
       {showWalletModal && (
         <WalletConnectModal
           onClose={() => setShowWalletModal(false)}
@@ -157,7 +151,6 @@ export default function App() {
         />
       )}
 
-      {/* Token Purchase Flow Modal */}
       {purchaseFilmId !== null && (
         <TokenPurchaseFlow
           filmId={purchaseFilmId}
@@ -197,25 +190,28 @@ export default function App() {
           />
         )}
         {currentView === "vault" && (
-          <VaultScreen setView={navigate} />
+          <VaultScreen
+            setView={navigate}
+            currentUser={currentUser}
+            onConnect={() => setShowWalletModal(true)}
+            onSubscribe={handleSubscribe}
+            cineCredits={cineCredits}
+          />
         )}
         {currentView === "community" && (
-          <CommunityScreen setView={navigate} />
+          <CommunityScreen setView={navigate} currentUser={currentUser} onConnect={() => setShowWalletModal(true)} />
         )}
         {currentView === "submit" && (
-          <SubmitScreen setView={navigate} />
+          <SubmitScreen setView={navigate} currentUser={currentUser} />
         )}
         {currentView === "studio" && (
-          <StudioScreen setView={navigate} />
-        )}
-        {currentView === "pass" && (
-          <CinePassScreen cineCredits={cineCredits} setView={navigate} onSubscribe={handleSubscribe} />
+          <StudioScreen setView={navigate} currentUser={currentUser} />
         )}
         {currentView === "governance" && (
-          <GovernanceScreen cineBalance={cineBalance} />
+          <GovernanceScreen cineBalance={cineBalance} currentUser={currentUser} onConnect={() => setShowWalletModal(true)} />
         )}
         {currentView === "market" && (
-          <MarketScreen cineCredits={cineCredits} setView={navigate} selectedMarketItem={selectedMarketItem} />
+          <MarketScreen cineCredits={cineCredits} setView={navigate} selectedMarketItem={selectedMarketItem} currentUser={currentUser} />
         )}
         {currentView === "piracy" && (
           <PiracyScreen setView={navigate} />
@@ -227,7 +223,7 @@ export default function App() {
           />
         )}
         {currentView === "revenue" && (
-          <FilmmakerRevenueDashboard setView={navigate} />
+          <FilmmakerRevenueDashboard setView={navigate} currentUser={currentUser} />
         )}
       </main>
 
@@ -235,7 +231,6 @@ export default function App() {
         <Footer setView={navigate} />
       )}
 
-      {/* Loading Overlay for Rehydration */}
       {isRehydrating && (
         <div className="fixed inset-0 z-[100] bg-surface flex items-center justify-center">
           <div className="text-center">

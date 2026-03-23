@@ -1,31 +1,123 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { proposals } from "../data/mockData";
-import { Vote, CheckCircle2, XCircle, Clock, ThumbsUp, ThumbsDown, Hexagon } from "lucide-react";
+import { proposals as mockProposals } from "../data/mockData";
+import { Vote, CheckCircle2, XCircle, Clock, ThumbsUp, ThumbsDown, Hexagon, Plus, LogIn } from "lucide-react";
+import type { DbUser, DbProposal } from "../lib/supabase";
+import { fetchProposals, createProposal, castVote, getUserVotes } from "../lib/auth";
 
 interface GovernanceScreenProps {
   cineBalance: number;
+  currentUser: DbUser | null;
+  onConnect: () => void;
 }
 
-export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
-  const [votes, setVotes] = useState<Record<string, "for" | "against">>({});
+const PROPOSAL_TYPES = [
+  { value: "fee_adjustment", label: "Fee Adjustment" },
+  { value: "token_tier_update", label: "Token Tier Update" },
+  { value: "treasury_allocation", label: "Treasury Allocation" },
+  { value: "content_standards", label: "Content Standards" },
+  { value: "platform_upgrade", label: "Platform Upgrade" },
+  { value: "other", label: "Other" },
+];
 
-  const handleVote = (proposalId: string, direction: "for" | "against") => {
-    if (votes[proposalId]) return; // already voted
-    setVotes((v) => ({ ...v, [proposalId]: direction }));
+export function GovernanceScreen({ cineBalance, currentUser, onConnect }: GovernanceScreenProps) {
+  const [mockVotes, setMockVotes] = useState<Record<string, "for" | "against">>({});
+  const [dbProposals, setDbProposals] = useState<DbProposal[]>([]);
+  const [userVotes, setUserVotes] = useState<Record<string, "for" | "against">>({});
+  const [showComposer, setShowComposer] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newType, setNewType] = useState("fee_adjustment");
+  const [newDeadlineDays, setNewDeadlineDays] = useState(7);
+  const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+    loadProposals();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserVotes(currentUser.id).then(setUserVotes);
+    }
+  }, [currentUser]);
+
+  const loadProposals = async () => {
+    const proposals = await fetchProposals();
+    setDbProposals(proposals);
+  };
+
+  const handleSubmitProposal = async () => {
+    if (!currentUser || !newTitle.trim() || !newDesc.trim()) return;
+    setPosting(true);
+    try {
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + newDeadlineDays);
+      const proposal = await createProposal(
+        currentUser.id,
+        newTitle,
+        newDesc,
+        newType,
+        deadline.toISOString()
+      );
+      setDbProposals(prev => [proposal, ...prev]);
+      setNewTitle("");
+      setNewDesc("");
+      setShowComposer(false);
+    } catch (err) {
+      console.error("Failed to create proposal:", err);
+    }
+    setPosting(false);
+  };
+
+  const handleDbVote = async (proposalId: string, direction: "for" | "against") => {
+    if (!currentUser || userVotes[proposalId]) return;
+    try {
+      await castVote(proposalId, currentUser.id, direction);
+      setUserVotes(prev => ({ ...prev, [proposalId]: direction }));
+      setDbProposals(prev => prev.map(p => {
+        if (p.id !== proposalId) return p;
+        return {
+          ...p,
+          votes_for: direction === "for" ? p.votes_for + 1 : p.votes_for,
+          votes_against: direction === "against" ? p.votes_against + 1 : p.votes_against,
+        };
+      }));
+    } catch (err) {
+      console.error("Vote failed:", err);
+    }
+  };
+
+  const handleMockVote = (proposalId: string, direction: "for" | "against") => {
+    if (mockVotes[proposalId]) return;
+    setMockVotes((v) => ({ ...v, [proposalId]: direction }));
   };
 
   const statusColor = (status: string) => {
-    if (status === "Active") return "bg-primary/10 text-primary";
-    if (status === "Passed") return "bg-tertiary/10 text-tertiary";
+    if (status === "Active" || status === "active") return "bg-primary/10 text-primary";
+    if (status === "Passed" || status === "passed") return "bg-tertiary/10 text-tertiary";
     return "bg-error/10 text-error";
   };
 
   const statusIcon = (status: string) => {
-    if (status === "Active") return <Clock className="h-4 w-4 mr-1" />;
-    if (status === "Passed") return <CheckCircle2 className="h-4 w-4 mr-1" />;
+    if (status === "Active" || status === "active") return <Clock className="h-4 w-4 mr-1" />;
+    if (status === "Passed" || status === "passed") return <CheckCircle2 className="h-4 w-4 mr-1" />;
     return <XCircle className="h-4 w-4 mr-1" />;
+  };
+
+  const getUserDisplay = (user: any) => {
+    if (!user) return "Unknown";
+    return user.display_name || (user.wallet_address ? `0x${user.wallet_address.slice(2, 6)}...${user.wallet_address.slice(-4)}` : "Anon");
+  };
+
+  const getDeadlineDisplay = (deadline: string) => {
+    const now = Date.now();
+    const dl = new Date(deadline).getTime();
+    const diff = dl - now;
+    if (diff <= 0) return "Ended";
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days}d ${hours}h`;
   };
 
   return (
@@ -69,8 +161,8 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-3 gap-8">
             {[
-              { label: "Active Proposals", value: proposals.filter((p) => p.status === "Active").length.toString(), color: "text-primary" },
-              { label: "Total Proposals", value: proposals.length.toString(), color: "text-on-surface" },
+              { label: "Active Proposals", value: (mockProposals.filter((p) => p.status === "Active").length + dbProposals.filter(p => p.status === "active").length).toString(), color: "text-primary" },
+              { label: "Total Proposals", value: (mockProposals.length + dbProposals.length).toString(), color: "text-on-surface" },
               { label: "Total Voters", value: "4,821", color: "text-secondary" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -90,16 +182,155 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
               <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">
                 Proposals
               </h2>
-              <Button variant="outline" size="sm" onClick={() => alert('DAO Governance proposals are currently in the timelock review period. Check back soon.')}>
-                + New Proposal
-              </Button>
+              {currentUser ? (
+                <Button variant="outline" size="sm" onClick={() => setShowComposer(!showComposer)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Proposal
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={onConnect}>
+                  <LogIn className="h-4 w-4 mr-1" />
+                  Sign in to Submit
+                </Button>
+              )}
             </div>
 
-            {proposals.map((proposal) => {
+            {/* Proposal Composer */}
+            {showComposer && currentUser && (
+              <div className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden">
+                <RainbowStripe className="absolute top-0 left-0 h-2" />
+                <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6">Submit Proposal</h3>
+                <input
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  placeholder="Proposal title..."
+                  className="w-full bg-transparent border-b-2 border-outline-variant py-3 font-headline text-xl font-bold text-on-surface focus:outline-none focus:border-primary transition-colors placeholder:text-outline-variant/50 mb-4"
+                />
+                <textarea
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  placeholder="Describe your proposal..."
+                  rows={4}
+                  className="w-full bg-surface-container-low border border-outline-variant p-4 font-body text-on-surface focus:outline-none focus:border-primary transition-colors resize-none mb-4"
+                />
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Proposal Type</label>
+                    <select
+                      value={newType}
+                      onChange={e => setNewType(e.target.value)}
+                      className="w-full bg-surface-container-low border border-outline-variant p-3 font-body text-on-surface focus:outline-none focus:border-primary"
+                    >
+                      {PROPOSAL_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Voting Period (days)</label>
+                    <input
+                      type="number"
+                      value={newDeadlineDays}
+                      onChange={e => setNewDeadlineDays(Math.max(1, parseInt(e.target.value) || 7))}
+                      min={1}
+                      max={30}
+                      className="w-full bg-surface-container-low border border-outline-variant p-3 font-body text-on-surface focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setShowComposer(false)}>Cancel</Button>
+                  <Button onClick={handleSubmitProposal} disabled={posting || !newTitle.trim() || !newDesc.trim()}>
+                    {posting ? "Submitting..." : "Submit Proposal"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* DB Proposals */}
+            {dbProposals.map((proposal) => {
+              const total = proposal.votes_for + proposal.votes_against;
+              const forPct = total > 0 ? Math.round((proposal.votes_for / total) * 100) : 50;
+              const isActive = proposal.status === "active";
+              const myVote = userVotes[proposal.id];
+
+              return (
+                <div
+                  key={proposal.id}
+                  className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden"
+                >
+                  {isActive && <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />}
+
+                  <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs text-outline-variant font-bold">DB</span>
+                      <span className={`inline-flex items-center px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${statusColor(proposal.status)}`}>
+                        {statusIcon(proposal.status)} {proposal.status}
+                      </span>
+                      <span className="px-2 py-1 font-label text-xs uppercase tracking-widest font-bold bg-surface-container text-on-surface-variant">
+                        {PROPOSAL_TYPES.find(t => t.value === proposal.proposal_type)?.label || proposal.proposal_type}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-on-surface-variant">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span className="font-label text-xs uppercase tracking-widest">{getDeadlineDisplay(proposal.voting_deadline)}</span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-2xl font-headline font-bold text-on-surface mb-2">{proposal.title}</h3>
+                  <p className="font-body text-sm text-on-surface-variant mb-2">by {getUserDisplay(proposal.user)}</p>
+                  <p className="font-body text-on-surface-variant mb-6 leading-relaxed">{proposal.description}</p>
+
+                  <div className="mb-2">
+                    <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">
+                      <span className="text-tertiary font-bold">For {proposal.votes_for.toLocaleString()}</span>
+                      <span className="text-error font-bold">Against {proposal.votes_against.toLocaleString()}</span>
+                    </div>
+                    <div className="w-full h-3 bg-surface-container-high overflow-hidden flex">
+                      <div className="h-full bg-tertiary transition-all duration-1000" style={{ width: `${forPct}%` }} />
+                      <div className="h-full bg-error flex-1" />
+                    </div>
+                  </div>
+
+                  {isActive && currentUser && (
+                    <div className="flex gap-4 mt-4">
+                      <Button
+                        variant={myVote === "for" ? "primary" : "outline"}
+                        className="flex-1"
+                        onClick={() => handleDbVote(proposal.id, "for")}
+                        disabled={!!myVote}
+                      >
+                        <ThumbsUp className="h-4 w-4 mr-2" />
+                        {myVote === "for" ? "Voted For" : "Vote For"}
+                      </Button>
+                      <Button
+                        variant={myVote === "against" ? "secondary" : "outline"}
+                        className={`flex-1 ${myVote === "against" ? "bg-error text-white border-error" : ""}`}
+                        onClick={() => handleDbVote(proposal.id, "against")}
+                        disabled={!!myVote}
+                      >
+                        <ThumbsDown className="h-4 w-4 mr-2" />
+                        {myVote === "against" ? "Voted Against" : "Vote Against"}
+                      </Button>
+                    </div>
+                  )}
+                  {isActive && !currentUser && (
+                    <div className="mt-4 text-center">
+                      <button onClick={onConnect} className="font-label text-xs uppercase tracking-widest text-primary hover:underline">
+                        Sign in to vote
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Mock proposals (always shown) */}
+            {mockProposals.map((proposal) => {
               const total = proposal.votesFor + proposal.votesAgainst;
               const forPct = total > 0 ? Math.round((proposal.votesFor / total) * 100) : 0;
               const quorumPct = Math.min(100, Math.round((total / proposal.quorum) * 100));
-              const myVote = votes[proposal.id];
+              const myVote = mockVotes[proposal.id];
               const isActive = proposal.status === "Active";
 
               return (
@@ -107,7 +338,6 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
                   key={proposal.id}
                   className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden"
                 >
-                  {/* Status stripe */}
                   {proposal.status === "Active" && (
                     <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
                   )}
@@ -131,42 +361,33 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
                   <p className="font-body text-sm text-on-surface-variant mb-2">by {proposal.author}</p>
                   <p className="font-body text-on-surface-variant mb-6 leading-relaxed">{proposal.description}</p>
 
-                  {/* Vote bar */}
                   <div className="mb-2">
                     <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">
                       <span className="text-tertiary font-bold">For {proposal.votesFor.toLocaleString()}</span>
                       <span className="text-error font-bold">Against {proposal.votesAgainst.toLocaleString()}</span>
                     </div>
                     <div className="w-full h-3 bg-surface-container-high overflow-hidden flex">
-                      <div
-                        className="h-full bg-tertiary transition-all duration-1000"
-                        style={{ width: `${forPct}%` }}
-                      />
+                      <div className="h-full bg-tertiary transition-all duration-1000" style={{ width: `${forPct}%` }} />
                       <div className="h-full bg-error flex-1" />
                     </div>
                   </div>
 
-                  {/* Quorum */}
                   <div className="mb-6">
                     <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">
                       <span>Quorum Progress</span>
                       <span>{quorumPct}% of {proposal.quorum.toLocaleString()} needed</span>
                     </div>
                     <div className="w-full h-1.5 bg-surface-container-high overflow-hidden">
-                      <div
-                        className="h-full bg-secondary transition-all duration-1000"
-                        style={{ width: `${quorumPct}%` }}
-                      />
+                      <div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${quorumPct}%` }} />
                     </div>
                   </div>
 
-                  {/* Voting buttons */}
                   {isActive && (
                     <div className="flex gap-4">
                       <Button
                         variant={myVote === "for" ? "primary" : "outline"}
                         className="flex-1"
-                        onClick={() => handleVote(proposal.id, "for")}
+                        onClick={() => handleMockVote(proposal.id, "for")}
                         disabled={!!myVote || cineBalance === 0}
                       >
                         <ThumbsUp className="h-4 w-4 mr-2" />
@@ -175,7 +396,7 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
                       <Button
                         variant={myVote === "against" ? "secondary" : "outline"}
                         className={`flex-1 ${myVote === "against" ? "bg-error text-white border-error" : ""}`}
-                        onClick={() => handleVote(proposal.id, "against")}
+                        onClick={() => handleMockVote(proposal.id, "against")}
                         disabled={!!myVote || cineBalance === 0}
                       >
                         <ThumbsDown className="h-4 w-4 mr-2" />
@@ -195,7 +416,6 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
 
           {/* Sidebar */}
           <div className="space-y-8">
-            {/* How it works */}
             <div className="bg-on-surface text-surface-container-lowest p-8 relative overflow-hidden shadow-film">
               <RainbowStripe className="absolute top-0 left-0 h-2" />
               <h3 className="text-2xl font-headline font-bold uppercase tracking-tight mb-6 border-b border-surface-variant/20 pb-4">
@@ -218,7 +438,6 @@ export function GovernanceScreen({ cineBalance }: GovernanceScreenProps) {
               </div>
             </div>
 
-            {/* Protocol stats */}
             <div className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film relative overflow-hidden">
               <RainbowStripe className="absolute top-0 left-0 h-1" />
               <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-6 border-b-2 border-on-surface pb-2">

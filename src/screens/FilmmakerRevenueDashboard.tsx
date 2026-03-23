@@ -3,9 +3,11 @@ import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { films } from "../data/mockData";
 import { BarChart3, TrendingUp, Film, DollarSign, ArrowUpRight } from "lucide-react";
+import type { DbUser } from "../lib/supabase";
 
 interface FilmmakerRevenueDashboardProps {
   setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  currentUser: DbUser | null;
 }
 
 // Mock revenue data per film
@@ -26,7 +28,7 @@ const revenueByFilm = films.slice(0, 3).map((film) => ({
 
 const totalRevenue = revenueByFilm.reduce((sum, f) => sum + f.totalRevenue, 0);
 
-export function FilmmakerRevenueDashboard({ setView }: FilmmakerRevenueDashboardProps) {
+export function FilmmakerRevenueDashboard({ setView, currentUser }: FilmmakerRevenueDashboardProps) {
   const [selectedFilm, setSelectedFilm] = useState<number | null>(null);
   const selected = revenueByFilm.find((f) => f.filmId === selectedFilm) || revenueByFilm[0];
 
