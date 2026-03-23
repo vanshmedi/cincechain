@@ -29,6 +29,7 @@ import { MarketScreen } from "./screens/MarketScreen";
 import { PiracyScreen } from "./screens/PiracyScreen";
 import { CuratorProfileScreen } from "./screens/CuratorProfileScreen";
 import { FilmmakerRevenueDashboard } from "./screens/FilmmakerRevenueDashboard";
+import { UserOnboardingScreen } from "./screens/UserOnboardingScreen";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("landing");
@@ -40,13 +41,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [isRehydrating, setIsRehydrating] = useState(true);
+  const [onboardingData, setOnboardingData] = useState<{ walletAddress: string | null; method: string } | null>(null);
 
   // Derived convenience values
   const walletAddress = currentUser?.wallet_address ?? null;
   const cineCredits   = currentUser?.credit_balance ?? 0;
-
-  // CINE token balance for governance (on-chain, not in DB yet)
-  const [cineBalance, setCineBalance] = useState(350);
 
   // ── Session persistence: rehydrate from localStorage on mount ───────────
   useEffect(() => {
@@ -73,6 +72,13 @@ export default function App() {
 
   // Unified navigation handler
   const navigate = (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => {
+    // Guest view restrictions
+    const guestViews = ["landing", "gallery", "market", "community", "onboarding"];
+    if (!currentUser && !guestViews.includes(view)) {
+      setShowWalletModal(true);
+      return;
+    }
+
     if (filmId !== undefined) setSelectedFilmId(filmId);
     if (curatorHandle !== undefined) setSelectedCuratorHandle(curatorHandle);
     if (marketItemId !== undefined) {
@@ -83,6 +89,12 @@ export default function App() {
     
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleProceedToOnboarding = (walletAddress: string | null, method: string) => {
+    setOnboardingData({ walletAddress, method });
+    setShowWalletModal(false);
+    navigate("onboarding");
   };
 
   const handleWalletConnect = (user: DbUser) => {
@@ -108,6 +120,10 @@ export default function App() {
 
   const handlePurchaseConfirm = async (price: number) => {
     if (!currentUser || purchaseFilmId === null) return;
+    if (currentUser.wallet_address?.startsWith("privy-")) {
+      alert("Connect a wallet to access this feature");
+      return;
+    }
 
     try {
       const updatedUser = await purchaseFilmToken(
@@ -138,7 +154,7 @@ export default function App() {
     }
   };
 
-  const noNavViews = ["studio", "revenue"];
+  const noNavViews = ["studio", "revenue", "onboarding"];
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-primary selection:text-white">
@@ -148,6 +164,7 @@ export default function App() {
         <WalletConnectModal
           onClose={() => setShowWalletModal(false)}
           onConnect={handleWalletConnect}
+          onProceedToOnboarding={handleProceedToOnboarding}
         />
       )}
 
@@ -177,6 +194,18 @@ export default function App() {
       <main className={`flex-grow ${!noNavViews.includes(currentView) ? "pt-16" : ""}`}>
         {currentView === "landing" && (
           <LandingScreen setView={navigate} onConnect={() => setShowWalletModal(true)} />
+        )}
+        {currentView === "onboarding" && onboardingData && (
+          <UserOnboardingScreen 
+            walletAddress={onboardingData.walletAddress}
+            method={onboardingData.method}
+            onComplete={(user) => {
+              setCurrentUser(user);
+              setOnboardingData(null);
+              setCurrentView("vault");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
         )}
         {currentView === "gallery" && (
           <GalleryScreen setView={navigate} />
@@ -208,7 +237,7 @@ export default function App() {
           <StudioScreen setView={navigate} currentUser={currentUser} />
         )}
         {currentView === "governance" && (
-          <GovernanceScreen cineBalance={cineBalance} currentUser={currentUser} onConnect={() => setShowWalletModal(true)} />
+          <GovernanceScreen cineBalance={cineCredits} currentUser={currentUser} onConnect={() => setShowWalletModal(true)} />
         )}
         {currentView === "market" && (
           <MarketScreen cineCredits={cineCredits} setView={navigate} selectedMarketItem={selectedMarketItem} currentUser={currentUser} />

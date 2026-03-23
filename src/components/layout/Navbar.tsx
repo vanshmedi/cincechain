@@ -45,7 +45,7 @@ export function Navbar({
           </div>
 
           <div className="hidden md:flex space-x-6">
-            {navItems.map((item) => (
+            {navItems.filter(item => item.id !== "studio" || walletAddress).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setView(item.id)}
@@ -109,7 +109,9 @@ export function Navbar({
       {isMobileMenuOpen && (
         <div className="md:hidden bg-surface-container-lowest border-t border-outline-variant/30 py-2 shadow-film absolute w-full left-0">
           <ul className="flex flex-col space-y-1 px-4">
-            {["Gallery", "Vault", "Community", "Studio"].map((label) => (
+            {["Gallery", "Vault", "Community", "Studio"]
+              .filter(label => (label !== "Studio" && label !== "Vault") || walletAddress)
+              .map((label) => (
               <li key={label}>
                 <button
                   onClick={() => {

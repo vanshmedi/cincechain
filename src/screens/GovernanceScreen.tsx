@@ -72,6 +72,10 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
 
   const handleDbVote = async (proposalId: string, direction: "for" | "against") => {
     if (!currentUser || userVotes[proposalId]) return;
+    if (currentUser.wallet_address?.startsWith("privy-")) {
+      alert("Connect a wallet to access this feature");
+      return;
+    }
     try {
       await castVote(proposalId, currentUser.id, direction);
       setUserVotes(prev => ({ ...prev, [proposalId]: direction }));
@@ -90,6 +94,10 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
 
   const handleMockVote = (proposalId: string, direction: "for" | "against") => {
     if (mockVotes[proposalId]) return;
+    if (currentUser?.wallet_address?.startsWith("privy-")) {
+      alert("Connect a wallet to access this feature");
+      return;
+    }
     setMockVotes((v) => ({ ...v, [proposalId]: direction }));
   };
 
@@ -138,12 +146,12 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                 Governance
               </h1>
               <p className="text-xl font-body text-surface-variant max-w-2xl">
-                Shape the future of the protocol. Each $CINE token is one vote.
+                Shape the future of the protocol. Each CC token is one vote.
               </p>
             </div>
             <div className="mt-8 md:mt-0 bg-surface-container-lowest/10 border border-surface-variant/20 p-6 text-right">
               <p className="font-label text-xs uppercase tracking-widest text-outline-variant mb-2">
-                Your $CINE Balance
+                Your CC Balance
               </p>
               <p className="font-headline font-black text-4xl text-surface-container-lowest">
                 {cineBalance.toLocaleString()}
@@ -182,15 +190,10 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
               <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">
                 Proposals
               </h2>
-              {currentUser ? (
+              {currentUser && (
                 <Button variant="outline" size="sm" onClick={() => setShowComposer(!showComposer)}>
                   <Plus className="h-4 w-4 mr-1" />
                   New Proposal
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" onClick={onConnect}>
-                  <LogIn className="h-4 w-4 mr-1" />
-                  Sign in to Submit
                 </Button>
               )}
             </div>
@@ -314,13 +317,6 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                       </Button>
                     </div>
                   )}
-                  {isActive && !currentUser && (
-                    <div className="mt-4 text-center">
-                      <button onClick={onConnect} className="font-label text-xs uppercase tracking-widest text-primary hover:underline">
-                        Sign in to vote
-                      </button>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -382,7 +378,7 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                     </div>
                   </div>
 
-                  {isActive && (
+                  {isActive && currentUser && (
                     <div className="flex gap-4">
                       <Button
                         variant={myVote === "for" ? "primary" : "outline"}
@@ -406,7 +402,7 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                   )}
                   {cineBalance === 0 && isActive && (
                     <p className="mt-3 text-center font-label text-xs uppercase tracking-widest text-error">
-                      You need $CINE tokens to vote
+                      You need CC tokens to vote
                     </p>
                   )}
                 </div>
@@ -423,7 +419,7 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
               </h3>
               <div className="space-y-6">
                 {[
-                  { step: "01", text: "Hold $CINE tokens in your wallet. 1 token = 1 vote." },
+                  { step: "01", text: "Hold CC tokens in your wallet. 1 token = 1 vote." },
                   { step: "02", text: "Active proposals are open for 7 days. Vote For or Against." },
                   { step: "03", text: "If quorum is reached and majority votes For, the proposal passes on-chain." },
                   { step: "04", text: "Auteur CinePass holders can create new proposals." },
@@ -447,9 +443,9 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                 {[
                   { label: "Protocol Fee", value: "5%" },
                   { label: "Resale Royalty", value: "10%" },
-                  { label: "Quorum Threshold", value: "20,000 CINE" },
+                  { label: "Quorum Threshold", value: "20,000 CC" },
                   { label: "Voting Period", value: "7 Days" },
-                  { label: "Proposal Min.", value: "100 CINE" },
+                  { label: "Proposal Min.", value: "100 CC" },
                 ].map((item) => (
                   <div key={item.label} className="flex justify-between items-center">
                     <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{item.label}</span>
@@ -465,10 +461,10 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
                 <span className="font-label text-xs uppercase tracking-widest font-bold text-primary">Get Voting Power</span>
               </div>
               <p className="font-body text-sm text-on-surface-variant mb-4">
-                Acquire $CINE tokens to participate in governance. Auteur CinePass holders receive a monthly CINE allocation.
+                Acquire CC tokens to participate in governance. Auteur CinePass holders receive a monthly CC allocation.
               </p>
               <Button variant="outline" className="w-full text-sm" onClick={() => alert('DAO Governance proposals are currently in the timelock review period. Check back soon.')}>
-                Acquire $CINE
+                Acquire CC
               </Button>
             </div>
           </div>

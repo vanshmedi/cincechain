@@ -157,6 +157,10 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
 
   const handleList = async (price: number, desc: string) => {
     if (!currentUser || !listingItem || price <= 0) return;
+    if (currentUser.wallet_address?.startsWith("privy-")) {
+      alert("Connect a wallet to access this feature");
+      return;
+    }
     try {
       await createMarketListing(
         currentUser.id,

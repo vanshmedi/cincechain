@@ -10,22 +10,32 @@ interface WalletConnectModalProps {
   onClose: () => void;
   /** Called with the full Supabase user row on successful connect */
   onConnect: (user: DbUser) => void;
+  /** Called when proceeding to onboarding */
+  onProceedToOnboarding?: (walletAddress: string | null, method: string) => void;
 }
 
 const walletOptions = [
   { id: "metamask",      name: "MetaMask / Web3 Wallet", description: "Connect using your browser extension.",                           icon: "🦊" },
   { id: "coinbase",      name: "Coinbase Wallet",         description: "Connect with Coinbase Wallet.",                                   icon: "🔵" },
-  { id: "walletconnect", name: "WalletConnect",           description: "Scan a QR code with any compatible wallet.",                      icon: "🔗" },
   { id: "privy",         name: "Privy (Email / Social)", description: "No crypto knowledge needed. Login with email, Google, or Twitter.", icon: "✉" },
 ];
 
-export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalProps) {
+export function WalletConnectModal({ onClose, onConnect, onProceedToOnboarding }: WalletConnectModalProps) {
   const [step, setStep]       = useState<"choose" | "connecting" | "done" | "error">("choose");
   const [selected, setSelected] = useState<string | null>(null);
   const [user, setUser]         = useState<DbUser | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>("");
 
   const handleConnect = async (walletId: string) => {
+    if (walletId === "metamask") {
+      alert("Work in Progress");
+      return;
+    }
+    if (walletId === "privy" && onProceedToOnboarding) {
+      onProceedToOnboarding(null, "privy");
+      return;
+    }
+
     setSelected(walletId);
     setStep("connecting");
     setErrorMsg("");
@@ -45,17 +55,16 @@ export function WalletConnectModal({ onClose, onConnect }: WalletConnectModalPro
         throw new Error("No crypto wallet found. Please install MetaMask or Coinbase Wallet.");
       }
 
-      // 2. Upsert user in Supabase — returns existing or newly created row
-      const dbUser = await loginWithWallet(address);
-
-      // 3. Persist for continuity
-      saveWalletToStorage(address);
-
-      setUser(dbUser);
-      setStep("done");
-
-      // Notify parent — small delay so user sees the "Connected!" screen briefly
-      setTimeout(() => onConnect(dbUser), 1200);
+      if (onProceedToOnboarding) {
+        onProceedToOnboarding(address, walletId);
+      } else {
+        // Fallback for when not used with App.tsx full flow
+        const dbUser = await loginWithWallet(address);
+        saveWalletToStorage(address);
+        setUser(dbUser);
+        setStep("done");
+        setTimeout(() => onConnect(dbUser), 1200);
+      }
     } catch (err) {
       console.error("[WalletConnectModal]", err);
       setErrorMsg(err instanceof Error ? err.message : "Connection failed. Please try again.");

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { ShoppingBag, Tag, TrendingUp, ArrowUpRight, Filter, Hexagon, LogIn } from "lucide-react";
 import { marketListings as mockListings } from "../data/mockData";
+import { ArrowUpRight, TrendingUp, Wallet, ShieldCheck, RefreshCw, Tag } from "lucide-react";
 import type { DbUser, DbMarketListing } from "../lib/supabase";
 import { fetchMarketListings, cancelMarketListing } from "../lib/auth";
 
@@ -13,20 +13,20 @@ interface MarketScreenProps {
   currentUser: DbUser | null;
 }
 
-const tokenTypeColors: Record<string, string> = {
-  Rental: "bg-tertiary/10 text-tertiary",
-  Ownership: "bg-primary/10 text-primary",
-  Collector: "bg-secondary/10 text-secondary",
-};
-
 export function MarketScreen({ cineCredits, setView, selectedMarketItem, currentUser }: MarketScreenProps) {
-  const [filterType, setFilterType] = useState<string>("All");
+  const [filter, setFilter] = useState<"All" | "Rental" | "Ownership" | "Collector">("All");
   const [dbListings, setDbListings] = useState<DbMarketListing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadDbListings();
   }, []);
+
+  useEffect(() => {
+    if (selectedMarketItem) {
+      alert(`Success! Token #${selectedMarketItem} listed on the market.`);
+    }
+  }, [selectedMarketItem]);
 
   const loadDbListings = async () => {
     setLoading(true);
@@ -51,6 +51,10 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
       alert("Connect your wallet to purchase.");
       return;
     }
+    if (currentUser.wallet_address?.startsWith("privy-")) {
+      alert("Connect a wallet to access this feature");
+      return;
+    }
     if (cineCredits < listing.ask_price) {
       alert(`Insufficient CC. You need ${listing.ask_price} CC but have ${cineCredits} CC.`);
       return;
@@ -59,12 +63,12 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
     setDbListings(prev => prev.filter(l => l.id !== listing.id));
   };
 
-  const filteredMockListings = mockListings.filter(
-    (item) => filterType === "All" || item.tokenType === filterType
-  );
+  const filteredMockListings = filter === "All"
+    ? mockListings
+    : mockListings.filter((l) => l.tokenType === filter);
 
   const filteredDbListings = dbListings.filter(
-    (item) => filterType === "All" || item.token_type === filterType
+    (item) => filter === "All" || item.token_type === filter
   );
 
   const getSellerName = (seller: any) => {
@@ -78,30 +82,41 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
       <div className="w-full bg-on-surface pt-20 pb-16 relative overflow-hidden">
         <RainbowStripe className="absolute top-0 left-0 h-3 w-full" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="inline-flex items-center space-x-2 bg-surface-variant/10 border border-surface-variant/20 px-4 py-2 mb-6">
-            <ShoppingBag className="h-4 w-4 text-primary" />
-            <span className="font-label text-xs uppercase tracking-widest text-outline-variant">
-              Peer-to-Peer Exchange
-            </span>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end">
+            <div>
+              <div className="inline-flex items-center space-x-2 bg-surface-variant/10 border border-surface-variant/20 px-4 py-2 mb-6">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                <span className="font-label text-xs uppercase tracking-widest text-outline-variant">
+                  Secondary Market
+                </span>
+              </div>
+              <h1 className="text-6xl md:text-8xl font-headline font-black uppercase tracking-tighter text-surface-container-lowest mb-4">
+                Market
+              </h1>
+              <p className="text-xl font-body text-surface-variant max-w-2xl">
+                Buy and sell Film License Tokens. 10% royalty auto-distributed to filmmakers on every resale.
+              </p>
+            </div>
+            <div className="mt-8 md:mt-0 flex items-center bg-surface-container-lowest/10 border border-surface-variant/20 p-4">
+              <Wallet className="h-5 w-5 text-primary mr-3" />
+              <div>
+                <p className="font-label text-xs uppercase tracking-widest text-outline-variant">Your Balance</p>
+                <p className="font-headline font-black text-2xl text-surface-container-lowest">{cineCredits.toLocaleString()} CC</p>
+              </div>
+            </div>
           </div>
-          <h1 className="text-6xl md:text-8xl font-headline font-black uppercase tracking-tighter text-surface-container-lowest mb-4">
-            Market
-          </h1>
-          <p className="text-xl font-body text-surface-variant max-w-2xl">
-            The secondary market. Buy and sell cinema tokens on-chain. 10% resale royalty to filmmakers. 5% protocol fee.
-          </p>
         </div>
       </div>
 
-      {/* Stats bar */}
+      {/* Market stats */}
       <div className="bg-surface-container border-b border-outline-variant/30 py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-4 gap-8 text-center">
             {[
-              { label: "Active Listings", value: (filteredMockListings.length + filteredDbListings.length).toString(), color: "text-primary" },
-              { label: "24h Volume", value: "12,400 CC", color: "text-on-surface" },
-              { label: "Resale Royalty", value: "10%", color: "text-secondary" },
-              { label: "Protocol Fee", value: "5%", color: "text-tertiary" },
+              { label: "Active Listings", value: (filteredMockListings.length + filteredDbListings.length).toString(), color: "text-on-surface" },
+              { label: "24h Volume", value: "14,200 CC", color: "text-primary" },
+              { label: "Filmmaker Royalties Paid", value: "12,420 CC", color: "text-tertiary" },
+              { label: "Protocol Fee", value: "5%", color: "text-secondary" },
             ].map((stat) => (
               <div key={stat.label}>
                 <p className={`font-headline font-black text-2xl ${stat.color}`}>{stat.value}</p>
@@ -113,75 +128,128 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Filter bar */}
-        <div className="flex items-center gap-3 mb-10 border-b-2 border-on-surface pb-6">
-          <Filter className="h-5 w-5 text-on-surface-variant" />
-          <span className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mr-2">Filter:</span>
-          {["All", "Rental", "Ownership", "Collector"].map((type) => (
-            <button
-              key={type}
-              onClick={() => setFilterType(type)}
-              className={`font-label text-xs uppercase tracking-widest px-4 py-2 transition-all ${
-                filterType === type
-                  ? "bg-on-surface text-surface font-bold shadow-hard"
-                  : "bg-surface-container border border-outline-variant text-on-surface-variant hover:border-on-surface"
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        {/* Filter tabs */}
+        <div className="flex items-center justify-between mb-10 border-b-2 border-on-surface pb-4">
+          <div className="flex space-x-6 overflow-x-auto">
+            {(["All", "Rental", "Ownership", "Collector"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`font-label text-sm uppercase tracking-widest whitespace-nowrap transition-colors pb-1 ${filter === f
+                  ? "text-primary font-bold border-b-2 border-primary"
+                  : "text-on-surface-variant hover:text-on-surface"
+                  }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <button className="hidden md:flex items-center font-label text-sm uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-colors">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </button>
         </div>
 
-        <div className="space-y-6">
-          {/* DB Listings first */}
+        {/* Listings grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* DB Listings */}
           {filteredDbListings.map((listing) => {
             const isOwn = currentUser?.id === listing.seller_id;
+            const canAfford = cineCredits >= listing.ask_price;
+            const originalPrice = listing.ask_price * 0.8;
+            const premiumPct = Math.round(((listing.ask_price - originalPrice) / originalPrice) * 100);
+            const sellerReceives = Math.round(listing.ask_price * 0.85);
+
             return (
               <div
                 key={listing.id}
-                className="bg-surface-container-lowest border border-outline-variant shadow-film overflow-hidden hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300 relative"
+                className="bg-surface-container-lowest border border-outline-variant shadow-film hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300 overflow-hidden relative group"
               >
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                <div className="flex flex-col md:flex-row">
-                  <div className="w-full md:w-48 h-32 flex-shrink-0">
+                <div className="absolute top-4 right-4 z-10 bg-primary/5 border border-primary/20 px-2 py-1 font-label text-[10px] uppercase tracking-widest text-primary font-bold">
+                  User Listed
+                </div>
+
+                {/* Token type badge */}
+                <div
+                  className={`absolute top-4 left-4 z-10 font-label text-xs uppercase tracking-widest px-3 py-1 font-bold ${listing.token_type === "Collector"
+                    ? "bg-secondary text-white"
+                    : listing.token_type === "Ownership"
+                      ? "bg-primary text-white"
+                      : "bg-on-surface text-surface-container-lowest"
+                    }`}
+                >
+                  {listing.token_type}
+                </div>
+
+                <div className="flex">
+                  <div className="w-40 h-40 flex-shrink-0 relative overflow-hidden">
                     {listing.film_image ? (
-                      <img src={listing.film_image} alt={listing.film_title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img
+                        src={listing.film_image}
+                        alt={listing.film_title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
                       <div className="w-full h-full bg-surface-container flex items-center justify-center">
                         <Tag className="h-8 w-8 text-outline-variant" />
                       </div>
                     )}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface-container-lowest/20" />
                   </div>
+
                   <div className="flex-1 p-6">
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <span className={`px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${tokenTypeColors[listing.token_type] || "bg-surface-container text-on-surface-variant"}`}>
-                        {listing.token_type}
-                      </span>
-                      {listing.token_number && (
-                        <span className="font-mono text-xs text-outline-variant">{listing.token_number}</span>
-                      )}
-                      <span className="bg-primary/5 border border-primary/20 px-2 py-1 font-label text-[10px] uppercase tracking-widest text-primary font-bold">
-                        User Listed
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-1">{listing.film_title}</h3>
-                    <p className="font-body text-sm text-on-surface-variant mb-1">Seller: {getSellerName(listing.seller)}</p>
-                    {listing.description && (
-                      <p className="font-body text-sm text-on-surface-variant italic">{listing.description}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col justify-center items-end p-6 border-t md:border-t-0 md:border-l border-outline-variant md:w-48">
-                    <p className="font-headline font-black text-2xl text-primary">{listing.ask_price.toLocaleString()} CC</p>
-                    <p className="font-label text-xs text-on-surface-variant uppercase tracking-widest mb-4">
-                      ${(listing.ask_price * 0.10).toFixed(2)} USD
+                    <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">
+                      {listing.film_title}
+                    </h3>
+                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-4">
+                      {listing.token_number ? `Token ${listing.token_number} · ` : ""}Seller {getSellerName(listing.seller)}
                     </p>
+
+                    <div className="flex items-end justify-between mb-4">
+                      <div>
+                        <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Ask Price</p>
+                        <p className="font-headline font-black text-2xl">{listing.ask_price.toLocaleString()} CC</p>
+                        <p className="font-label text-xs text-on-surface-variant">= ${(listing.ask_price * 0.10).toFixed(0)}</p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`inline-block font-label text-xs uppercase tracking-widest px-2 py-1 font-bold ${premiumPct > 0 ? "bg-tertiary/10 text-tertiary" : "bg-error/10 text-error"
+                            }`}
+                        >
+                          {premiumPct > 0 ? "+" : ""}{premiumPct}% vs mint
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Filmmaker royalty (10%)</span>
+                        <span>{Math.round(listing.ask_price * 0.10).toLocaleString()} CC</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Protocol fee (5%)</span>
+                        <span>{Math.round(listing.ask_price * 0.05).toLocaleString()} CC</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-on-surface">
+                        <span>Seller receives</span>
+                        <span>{sellerReceives.toLocaleString()} CC</span>
+                      </div>
+                    </div>
+
                     {isOwn ? (
                       <Button size="sm" variant="outline" className="w-full text-error border-error hover:bg-error hover:text-white" onClick={() => handleDelist(listing.id)}>
                         Delist
                       </Button>
                     ) : (
-                      <Button size="sm" className="w-full" onClick={() => handleBuyDbListing(listing)} disabled={cineCredits < listing.ask_price}>
-                        {cineCredits >= listing.ask_price ? "Buy Now" : "Insufficient CC"}
+                      <Button
+                        className="w-full"
+                        variant={canAfford ? "primary" : "outline"}
+                        size="sm"
+                        disabled={!canAfford}
+                        onClick={() => handleBuyDbListing(listing)}
+                      >
+                        {canAfford ? "Buy Now" : `Need ${(listing.ask_price - cineCredits).toLocaleString()} more CC`}
                       </Button>
                     )}
                   </div>
@@ -191,68 +259,128 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
           })}
 
           {/* Mock Listings */}
-          {filteredMockListings.map((listing) => (
-            <div
-              key={listing.id}
-              className="bg-surface-container-lowest border border-outline-variant shadow-film overflow-hidden hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300"
-            >
-              <div className="flex flex-col md:flex-row">
-                <div className="w-full md:w-48 h-32 flex-shrink-0">
-                  <img
-                    src={listing.image}
-                    alt={listing.filmTitle}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+          {filteredMockListings.map((listing) => {
+            const canAfford = cineCredits >= listing.askPrice;
+            const premiumPct = Math.round(((listing.askPrice - listing.originalPrice) / listing.originalPrice) * 100);
+
+            return (
+              <div
+                key={listing.id}
+                className="bg-surface-container-lowest border border-outline-variant shadow-film hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300 overflow-hidden relative group"
+              >
+                {/* Token type badge */}
+                <div
+                  className={`absolute top-4 left-4 z-10 font-label text-xs uppercase tracking-widest px-3 py-1 font-bold ${listing.tokenType === "Collector"
+                    ? "bg-secondary text-white"
+                    : listing.tokenType === "Ownership"
+                      ? "bg-primary text-white"
+                      : "bg-on-surface text-surface-container-lowest"
+                    }`}
+                >
+                  {listing.tokenType}
                 </div>
-                <div className="flex-1 p-6">
-                  <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <span className={`px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${tokenTypeColors[listing.tokenType] || "bg-surface-container text-on-surface-variant"}`}>
-                      {listing.tokenType}
-                    </span>
-                    <span className="font-mono text-xs text-outline-variant">#{listing.tokenNumber}</span>
+
+                <div className="flex">
+                  <div className="w-40 h-40 flex-shrink-0 relative overflow-hidden">
+                    <img
+                      src={listing.filmImage}
+                      alt={listing.filmTitle}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface-container-lowest/20" />
                   </div>
-                  <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-1">{listing.filmTitle}</h3>
-                  <p className="font-body text-sm text-on-surface-variant">
-                    Seller: {listing.seller}
-                  </p>
-                </div>
-                <div className="flex flex-col justify-center items-end p-6 border-t md:border-t-0 md:border-l border-outline-variant md:w-48">
-                  <p className="font-headline font-black text-2xl text-primary">{listing.askPriceCC.toLocaleString()} CC</p>
-                  <p className="font-label text-xs text-on-surface-variant uppercase tracking-widest mb-1">
-                    ${listing.askPriceUSD} USD
-                  </p>
-                  <p className="font-label text-[10px] text-outline-variant uppercase tracking-widest mb-4">
-                    Platform: {listing.platformFee}% · Royalty: {listing.royaltyFee}%
-                  </p>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      if (cineCredits < listing.askPriceCC) {
-                        alert(`Not enough CineCredits. You need ${listing.askPriceCC} CC.`);
-                      } else {
-                        alert(`Purchase confirmed! ${listing.filmTitle} ${listing.tokenType} #${listing.tokenNumber} acquired for ${listing.askPriceCC} CC.`);
-                      }
-                    }}
-                    disabled={cineCredits < listing.askPriceCC}
-                  >
-                    {cineCredits >= listing.askPriceCC ? "Buy Now" : "Insufficient CC"}
-                  </Button>
+
+                  <div className="flex-1 p-6">
+                    <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">
+                      {listing.filmTitle}
+                    </h3>
+                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-4">
+                      Token {listing.tokenNumber} · Seller {listing.seller}
+                    </p>
+
+                    <div className="flex items-end justify-between mb-4">
+                      <div>
+                        <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Ask Price</p>
+                        <p className="font-headline font-black text-2xl">{listing.askPrice.toLocaleString()} CC</p>
+                        <p className="font-label text-xs text-on-surface-variant">= ${(listing.askPrice * 0.10).toFixed(0)}</p>
+                      </div>
+                      <div className="text-right">
+                        <span
+                          className={`inline-block font-label text-xs uppercase tracking-widest px-2 py-1 font-bold ${premiumPct > 0 ? "bg-tertiary/10 text-tertiary" : "bg-error/10 text-error"
+                            }`}
+                        >
+                          {premiumPct > 0 ? "+" : ""}{premiumPct}% vs mint
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Filmmaker royalty (10%)</span>
+                        <span>{Math.round(listing.askPrice * 0.10).toLocaleString()} CC</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Protocol fee (5%)</span>
+                        <span>{Math.round(listing.askPrice * 0.05).toLocaleString()} CC</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-on-surface">
+                        <span>Seller receives</span>
+                        <span>{listing.sellerReceives.toLocaleString()} CC</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      variant={canAfford ? "primary" : "outline"}
+                      size="sm"
+                      disabled={!canAfford}
+                      onClick={() => {
+                        if (currentUser?.wallet_address?.startsWith("privy-")) {
+                          alert("Connect a wallet to access this feature");
+                          return;
+                        }
+                        if (cineCredits < listing.askPrice) {
+                          alert(`Not enough CineCredits. You need ${listing.askPrice} CC.`);
+                        } else {
+                          alert(`Purchase confirmed! ${listing.filmTitle} ${listing.tokenType} #${listing.tokenNumber} acquired for ${listing.askPrice} CC.`);
+                        }
+                      }}
+                    >
+                      {canAfford ? "Buy Now" : `Need ${(listing.askPrice - cineCredits).toLocaleString()} more CC`}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
 
-          {filteredMockListings.length === 0 && filteredDbListings.length === 0 && (
-            <div className="text-center py-16 bg-surface-container-lowest border border-outline-variant">
-              <ShoppingBag className="h-16 w-16 text-outline-variant mx-auto mb-4" />
-              <p className="font-headline font-bold text-xl uppercase tracking-tight text-on-surface-variant mb-2">No Listings Found</p>
-              <p className="font-body text-sm text-on-surface-variant">
-                No {filterType !== "All" ? filterType : ""} tokens are currently listed. Check back later or list your own from the Vault.
-              </p>
-            </div>
-          )}
+        {filteredMockListings.length === 0 && filteredDbListings.length === 0 && (
+          <div className="text-center py-24">
+            <p className="font-headline font-bold text-3xl uppercase tracking-tight text-on-surface-variant mb-4">
+              No {filter} listings
+            </p>
+            <p className="font-body text-on-surface-variant">Check back soon or browse other token types.</p>
+          </div>
+        )}
+
+        {/* Fee info */}
+        <div className="mt-16 bg-surface-container-lowest border border-outline-variant p-8 relative overflow-hidden">
+          <RainbowStripe className="absolute top-0 left-0 h-1" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+            {[
+              { label: "Filmmaker Royalty", value: "10%", desc: "Auto-distributed on every resale" },
+              { label: "Protocol Fee", value: "5%", desc: "To CineChain treasury" },
+              { label: "Seller Receives", value: "85%", desc: "Of the final sale price" },
+            ].map((item) => (
+              <div key={item.label}>
+                <p className="font-headline font-black text-4xl text-primary mb-1">{item.value}</p>
+                <p className="font-label text-sm uppercase tracking-widest font-bold mb-1">{item.label}</p>
+                <p className="font-body text-sm text-on-surface-variant">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

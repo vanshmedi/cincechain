@@ -143,13 +143,8 @@ export function CommunityScreen({ setView, currentUser, onConnect }: CommunitySc
             </p>
           </div>
           <div className="flex gap-4 mt-8 md:mt-0">
-            {currentUser ? (
+            {currentUser && (
               <Button size="lg" onClick={() => setShowComposer(!showComposer)}>New Thread</Button>
-            ) : (
-              <Button size="lg" onClick={onConnect}>
-                <LogIn className="h-4 w-4 mr-2" />
-                Sign in to Post
-              </Button>
             )}
             <Button size="lg" variant="outline" onClick={() => setView("governance")}>
               Governance

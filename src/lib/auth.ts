@@ -48,6 +48,46 @@ export async function loginWithWallet(walletAddress: string): Promise<DbUser> {
   return created as DbUser;
 }
 
+export async function completeOnboardingUser(
+  addressOrEmail: string,
+  isPrivy: boolean,
+  profile: { displayName: string; avatarUrl: string }
+): Promise<DbUser> {
+  const normalized = isPrivy ? `privy-${addressOrEmail.toLowerCase().trim()}` : addressOrEmail.toLowerCase().trim();
+
+  const { data: existing } = await supabase
+    .from("users")
+    .select("*")
+    .eq("wallet_address", normalized)
+    .maybeSingle();
+
+  if (existing) {
+    const { data: updated } = await supabase.from("users").update({
+      display_name: profile.displayName,
+      avatar_url: profile.avatarUrl
+    } as any).eq("id", existing.id).select("*").single();
+    return updated as DbUser;
+  }
+
+  const { data: created, error: insertError } = await supabase
+    .from("users")
+    .insert({ 
+      wallet_address: normalized, 
+      credit_balance: 2500, 
+      kyc_status: "none",
+      display_name: profile.displayName,
+      avatar_url: profile.avatarUrl
+    } as any)
+    .select("*")
+    .single();
+
+  if (insertError || !created) {
+    throw new Error(`[completeOnboardingUser] insert failed: ${insertError?.message ?? "no data"}`);
+  }
+
+  return created as DbUser;
+}
+
 export async function getUserByWallet(walletAddress: string): Promise<DbUser | null> {
   const { data, error } = await supabase
     .from("users")
