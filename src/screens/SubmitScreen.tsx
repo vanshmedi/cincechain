@@ -7,7 +7,7 @@ import { Upload, Camera, Info, Plus, Minus } from "lucide-react";
 import type { DbUser } from "../lib/supabase";
 
 interface SubmitScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   currentUser: DbUser | null;
 }
 

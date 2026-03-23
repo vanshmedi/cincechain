@@ -40,6 +40,10 @@ export async function loginWithWallet(walletAddress: string): Promise<DbUser> {
     .single();
 
   if (insertError || !created) {
+    if (insertError?.code === '23505') {
+      const { data: retry } = await supabase.from("users").select("*").eq("wallet_address", normalized).single();
+      if (retry) return retry as DbUser;
+    }
     throw new Error(
       `[loginWithWallet] insert failed: ${insertError?.message ?? "no data returned"}`
     );
@@ -82,6 +86,10 @@ export async function completeOnboardingUser(
     .single();
 
   if (insertError || !created) {
+    if (insertError?.code === '23505') {
+      const { data: retry } = await supabase.from("users").select("*").eq("wallet_address", normalized).single();
+      if (retry) return retry as DbUser;
+    }
     throw new Error(`[completeOnboardingUser] insert failed: ${insertError?.message ?? "no data"}`);
   }
 
@@ -103,33 +111,33 @@ export async function getUserByWallet(walletAddress: string): Promise<DbUser | n
 
 type TokenTier = "rental" | "ownership" | "collector";
 
+export async function refreshCCBalance(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("credit_balance")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data) {
+    throw new Error(`[refreshCCBalance] failed: ${error?.message}`);
+  }
+  return data.credit_balance;
+}
+
 export async function purchaseFilmToken(
   userId:    string,
   filmId:    string,
   tokenTier: TokenTier,
   cost:      number
 ): Promise<DbUser> {
-  const { data: userRow, error: userErr } = await supabase
-    .from("users")
-    .select("credit_balance")
-    .eq("id", userId)
-    .single();
+  // Use stored procedure to deduct credits atomically
+  const { data: success, error: deductErr } = await supabase.rpc("deduct_credits", {
+    p_user_id: userId,
+    p_amount: cost
+  });
 
-  if (userErr || !userRow) {
-    throw new Error(`[purchaseFilmToken] could not fetch user: ${userErr?.message}`);
-  }
-
-  const newBalance = Math.max(0, (userRow as { credit_balance: number }).credit_balance - cost);
-
-  const { data: updatedUser, error: updateErr } = await supabase
-    .from("users")
-    .update({ credit_balance: newBalance } as any)
-    .eq("id", userId)
-    .select("*")
-    .single();
-
-  if (updateErr || !updatedUser) {
-    throw new Error(`[purchaseFilmToken] credit deduction failed: ${updateErr?.message}`);
+  if (deductErr || success === false) {
+    throw new Error(`[purchaseFilmToken] credit deduction failed: ${deductErr?.message || "Insufficient funds"}`);
   }
 
   const mockTxHash =
@@ -145,6 +153,16 @@ export async function purchaseFilmToken(
 
   if (txErr) {
     console.error("[purchaseFilmToken] transaction row insert failed:", txErr.message);
+  }
+
+  const { data: updatedUser, error: userErr } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (userErr || !updatedUser) {
+    throw new Error(`[purchaseFilmToken] could not fetch updated user: ${userErr?.message}`);
   }
 
   return updatedUser as DbUser;
@@ -197,21 +215,20 @@ export async function uploadFilm(filmData: FilmUploadData): Promise<DbFilm> {
 // ── Subscription Flow ──────────────────────────────────────────────────────
 
 export async function subscribeToCinePass(userId: string, tier: string, bonusCredits: number): Promise<DbUser> {
-  const { data: userRow, error: userErr } = await supabase
-    .from("users")
-    .select("credit_balance")
-    .eq("id", userId)
-    .single();
-
-  if (userErr || !userRow) {
-    throw new Error(`[subscribeToCinePass] fetch failed: ${userErr?.message}`);
+  // Add bonus credits atomically
+  if (bonusCredits > 0) {
+    const { error: incrementErr } = await supabase.rpc("increment_credits", {
+      p_user_id: userId,
+      p_amount: bonusCredits
+    });
+    if (incrementErr) {
+      throw new Error(`[subscribeToCinePass] increment failed: ${incrementErr.message}`);
+    }
   }
-
-  const newBalance = (userRow as { credit_balance: number }).credit_balance + bonusCredits;
 
   const { data: updatedUser, error: updateErr } = await supabase
     .from("users")
-    .update({ credit_balance: newBalance, cinepass_tier: tier } as any)
+    .update({ cinepass_tier: tier } as any)
     .eq("id", userId)
     .select("*")
     .single();
@@ -469,6 +486,20 @@ export async function fetchDbFilms(): Promise<DbFilm[]> {
     return [];
   }
   return (data || []) as any;
+}
+
+export async function fetchDbFilmById(filmId: string): Promise<DbFilm | null> {
+  const { data, error } = await supabase
+    .from("films")
+    .select("*")
+    .eq("id", filmId)
+    .single();
+
+  if (error) {
+    console.error("[fetchDbFilmById] error:", error.message);
+    return null;
+  }
+  return data as any;
 }
 
 export async function fetchFilmmakerFilms(filmakerId: string): Promise<DbFilm[]> {

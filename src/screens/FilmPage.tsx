@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { films } from "../data/mockData";
+import { useEffect } from "react";
+import { type DbFilm } from "../lib/supabase";
+import { fetchDbFilmById } from "../lib/auth";
 import {
   ArrowLeft,
   Star,
@@ -15,24 +17,55 @@ import {
 } from "lucide-react";
 
 interface FilmPageProps {
-  filmId: number;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
-  onPurchase: (filmId: number, tier: string, price: number) => void;
+  filmId: string;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
+  onPurchase: (filmId: string, tier: string, price: number) => void;
   cineCredits: number;
 }
 
 export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageProps) {
-  const film = films.find((f) => f.id === filmId) || films[0];
+  const [film, setFilm] = useState<DbFilm | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDbFilmById(filmId).then((data) => {
+      setFilm(data);
+      setLoading(false);
+    });
+  }, [filmId]);
+
+  if (loading || !film) {
+    return (
+      <div className="w-full pt-32 pb-16 bg-surface min-h-screen text-center text-on-surface-variant">
+        Loading film details...
+      </div>
+    );
+  }
+
+  const meta = (film.revenue_split as any) || {};
+  const status = meta.status || "Live";
+  const fundingRaised = meta.fundingRaised || 0;
+  const fundingGoal = meta.fundingGoal || 1;
+  const backers = meta.backers || 0;
+  const festivalBadges = meta.festivalBadges || [];
+  const curatorEndorsed = meta.curatorEndorsed || false;
+  const curatorName = meta.curatorName || "";
+  
+  const tokens = meta.tokens || {
+    rental: { price: 150, supply: 5000, remaining: 5000 },
+    ownership: { price: 500, supply: 1000, remaining: 1000 },
+    collector: { price: 2500, supply: 100, remaining: 100 }
+  };
 
   const tiers = [
     {
       key: "rental",
       name: "Rental",
       description: "48-hour streaming access. Non-transferable.",
-      price: film.tokens.rental.price,
-      supply: film.tokens.rental.supply,
-      remaining: film.tokens.rental.remaining,
+      price: tokens.rental.price,
+      supply: tokens.rental.supply,
+      remaining: tokens.rental.remaining,
       color: "border-outline-variant",
       highlight: false,
     },
@@ -40,9 +73,9 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
       key: "ownership",
       name: "Ownership",
       description: "Permanent streaming rights. Transferable. Revenue share eligible.",
-      price: film.tokens.ownership.price,
-      supply: film.tokens.ownership.supply,
-      remaining: film.tokens.ownership.remaining,
+      price: tokens.ownership.price,
+      supply: tokens.ownership.supply,
+      remaining: tokens.ownership.remaining,
       color: "border-primary",
       highlight: true,
     },
@@ -50,15 +83,15 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
       key: "collector",
       name: "Collector",
       description: "Limited edition FLT. Resaleable on secondary market. 10% royalty to filmmaker on resale.",
-      price: film.tokens.collector.price,
-      supply: film.tokens.collector.supply,
-      remaining: film.tokens.collector.remaining,
+      price: tokens.collector.price,
+      supply: tokens.collector.supply,
+      remaining: tokens.collector.remaining,
       color: "border-secondary",
       highlight: false,
     },
   ] as const;
 
-  const fundingPct = Math.min(100, Math.round((film.fundingRaised / film.fundingGoal) * 100));
+  const fundingPct = Math.min(100, Math.round((fundingRaised / fundingGoal) * 100));
 
   return (
     <div className="w-full pt-16 bg-surface min-h-screen">
@@ -66,7 +99,7 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
       <section className="relative w-full h-[60vh] bg-on-surface overflow-hidden flex items-end pb-12">
         <div className="absolute inset-0 z-0">
           <img
-            src={film.image}
+            src={film.poster_url || ""}
             alt={film.title}
             className="w-full h-full object-cover opacity-30 mix-blend-luminosity"
             referrerPolicy="no-referrer"
@@ -84,7 +117,7 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
 
           {/* Badges */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {film.festivalBadges.map((badge) => (
+            {festivalBadges.map((badge: string) => (
               <span
                 key={badge}
                 className="inline-flex items-center bg-primary text-white font-label text-xs uppercase tracking-widest px-3 py-1 font-bold"
@@ -93,10 +126,10 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
                 {badge}
               </span>
             ))}
-            {film.curatorEndorsed && (
+            {curatorEndorsed && (
               <span className="inline-flex items-center bg-secondary text-white font-label text-xs uppercase tracking-widest px-3 py-1 font-bold">
                 <Star className="h-3 w-3 mr-1" />
-                Curator Endorsed — {film.curatorName}
+                Curator Endorsed — {curatorName}
               </span>
             )}
           </div>
@@ -105,11 +138,11 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
             {film.title}
           </h1>
           <div className="flex flex-wrap gap-6 text-surface-variant font-label text-sm uppercase tracking-widest">
-            <span>Dir. {film.director}</span>
+            <span>Dir. {film.director || "Unknown"}</span>
             <span>{film.year}</span>
-            <span>{film.genre}</span>
-            <span className="flex items-center"><Clock className="h-4 w-4 mr-1" />{film.runtime}</span>
-            <span className="flex items-center"><Users className="h-4 w-4 mr-1" />{film.backers.toLocaleString()} backers</span>
+            <span>{film.genre || "Independent"}</span>
+            <span className="flex items-center"><Clock className="h-4 w-4 mr-1" />{film.runtime ? `${Math.floor(film.runtime / 60)} min` : "90 min"}</span>
+            <span className="flex items-center"><Users className="h-4 w-4 mr-1" />{backers.toLocaleString()} backers</span>
           </div>
         </div>
       </section>
@@ -133,8 +166,8 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
                 />
               </div>
               <div className="flex justify-between mt-2 font-label text-xs text-on-surface-variant uppercase tracking-widest">
-                <span>{film.fundingRaised.toLocaleString()} CC raised</span>
-                <span>Goal: {film.fundingGoal.toLocaleString()} CC</span>
+                <span>{fundingRaised.toLocaleString()} CC raised</span>
+                <span>Goal: {fundingGoal.toLocaleString()} CC</span>
               </div>
             </div>
 
@@ -144,7 +177,7 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
                 Synopsis
               </h2>
               <p className="font-body text-on-surface-variant text-lg leading-relaxed">
-                {film.synopsis}
+                {film.description}
               </p>
             </div>
 
@@ -160,9 +193,9 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
                 </p>
                 <div className="space-y-4">
                   {[
-                    { label: `Director — ${film.director}`, pct: film.revenueSplit.director, color: "bg-primary" },
-                    { label: "Producer / Crew", pct: film.revenueSplit.producer + film.revenueSplit.crew, color: "bg-secondary" },
-                    { label: "Protocol Fee (CineChain)", pct: film.revenueSplit.protocol, color: "bg-outline-variant" },
+                    { label: `Director — ${film.director || 'Unknown'}`, pct: meta.director || 60, color: "bg-primary" },
+                    { label: "Producer / Crew", pct: meta.producer ? (meta.producer + (meta.crew || 0)) : 35, color: "bg-secondary" },
+                    { label: "Protocol Fee (CineChain)", pct: meta.protocol || 5, color: "bg-outline-variant" },
                   ].map((item) => (
                     <div key={item.label}>
                       <div className="flex justify-between mb-1">
@@ -193,7 +226,7 @@ export function FilmPage({ filmId, setView, onPurchase, cineCredits }: FilmPageP
                   { label: "Watermark", value: "Enabled" },
                   { label: "Protocol Fee", value: "5%" },
                   { label: "Resale Royalty", value: "10%" },
-                  { label: "Status", value: film.status },
+                  { label: "Status", value: status },
                 ].map((item) => (
                   <div key={item.label} className="bg-surface-container-lowest border border-outline-variant p-4">
                     <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">{item.label}</p>

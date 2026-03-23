@@ -1,12 +1,40 @@
 import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { cinePasses } from "../data/mockData";
+const cinePasses = [
+  {
+    id: "basic",
+    name: "Patron Pass",
+    description: "For active film supporters",
+    priceUSD: 10,
+    priceCC: 100,
+    recommended: false,
+    features: ["Access to all 'Funded' films", "1 voting token per month", "Standard Discord access"]
+  },
+  {
+    id: "pro",
+    name: "Auteur Pass",
+    description: "For true cinema patrons",
+    priceUSD: 49,
+    priceCC: 490,
+    recommended: true,
+    features: ["Access to ALL films", "10 voting tokens per month", "VIP Discord access", "Submit Governance Proposals"]
+  },
+  {
+    id: "whale",
+    name: "Producer Pass",
+    description: "For institutional supporters",
+    priceUSD: 199,
+    priceCC: 1990,
+    recommended: false,
+    features: ["All Auteur perks", "100 voting tokens per month", "Exclusive premier events", "Direct filmmaker AMA access"]
+  }
+];
 import { CheckCircle2, Wallet } from "lucide-react";
 
 interface CinePassScreenProps {
   cineCredits: number;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   onSubscribe?: (tier: string, bonus: number) => void;
 }
 

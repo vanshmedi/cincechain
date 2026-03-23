@@ -161,5 +161,4 @@ export interface Database {
   };
 }
 
-// ── Singleton client ────────────────────────────────────────────────────────
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase: any = createClient<Database>(supabaseUrl, supabaseAnonKey);

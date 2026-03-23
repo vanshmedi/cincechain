@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { proposals as mockProposals } from "../data/mockData";
 import { Vote, CheckCircle2, XCircle, Clock, ThumbsUp, ThumbsDown, Hexagon, Plus, LogIn } from "lucide-react";
 import type { DbUser, DbProposal } from "../lib/supabase";
 import { fetchProposals, createProposal, castVote, getUserVotes } from "../lib/auth";
@@ -22,7 +21,6 @@ const PROPOSAL_TYPES = [
 ];
 
 export function GovernanceScreen({ cineBalance, currentUser, onConnect }: GovernanceScreenProps) {
-  const [mockVotes, setMockVotes] = useState<Record<string, "for" | "against">>({});
   const [dbProposals, setDbProposals] = useState<DbProposal[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, "for" | "against">>({});
   const [showComposer, setShowComposer] = useState(false);
@@ -91,16 +89,6 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
       console.error("Vote failed:", err);
     }
   };
-
-  const handleMockVote = (proposalId: string, direction: "for" | "against") => {
-    if (mockVotes[proposalId]) return;
-    if (currentUser?.wallet_address?.startsWith("privy-")) {
-      alert("Connect a wallet to access this feature");
-      return;
-    }
-    setMockVotes((v) => ({ ...v, [proposalId]: direction }));
-  };
-
   const statusColor = (status: string) => {
     if (status === "Active" || status === "active") return "bg-primary/10 text-primary";
     if (status === "Passed" || status === "passed") return "bg-tertiary/10 text-tertiary";
@@ -169,8 +157,8 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-3 gap-8">
             {[
-              { label: "Active Proposals", value: (mockProposals.filter((p) => p.status === "Active").length + dbProposals.filter(p => p.status === "active").length).toString(), color: "text-primary" },
-              { label: "Total Proposals", value: (mockProposals.length + dbProposals.length).toString(), color: "text-on-surface" },
+              { label: "Active Proposals", value: dbProposals.filter(p => p.status === "active").length.toString(), color: "text-primary" },
+              { label: "Total Proposals", value: dbProposals.length.toString(), color: "text-on-surface" },
               { label: "Total Voters", value: "4,821", color: "text-secondary" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
@@ -321,93 +309,6 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
               );
             })}
 
-            {/* Mock proposals (always shown) */}
-            {mockProposals.map((proposal) => {
-              const total = proposal.votesFor + proposal.votesAgainst;
-              const forPct = total > 0 ? Math.round((proposal.votesFor / total) * 100) : 0;
-              const quorumPct = Math.min(100, Math.round((total / proposal.quorum) * 100));
-              const myVote = mockVotes[proposal.id];
-              const isActive = proposal.status === "Active";
-
-              return (
-                <div
-                  key={proposal.id}
-                  className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden"
-                >
-                  {proposal.status === "Active" && (
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
-                  )}
-
-                  <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono text-xs text-outline-variant font-bold">{proposal.id}</span>
-                      <span
-                        className={`inline-flex items-center px-2 py-1 font-label text-xs uppercase tracking-widest font-bold ${statusColor(proposal.status)}`}
-                      >
-                        {statusIcon(proposal.status)} {proposal.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center text-on-surface-variant">
-                      <Clock className="h-4 w-4 mr-1" />
-                      <span className="font-label text-xs uppercase tracking-widest">{proposal.endsIn}</span>
-                    </div>
-                  </div>
-
-                  <h3 className="text-2xl font-headline font-bold text-on-surface mb-2">{proposal.title}</h3>
-                  <p className="font-body text-sm text-on-surface-variant mb-2">by {proposal.author}</p>
-                  <p className="font-body text-on-surface-variant mb-6 leading-relaxed">{proposal.description}</p>
-
-                  <div className="mb-2">
-                    <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">
-                      <span className="text-tertiary font-bold">For {proposal.votesFor.toLocaleString()}</span>
-                      <span className="text-error font-bold">Against {proposal.votesAgainst.toLocaleString()}</span>
-                    </div>
-                    <div className="w-full h-3 bg-surface-container-high overflow-hidden flex">
-                      <div className="h-full bg-tertiary transition-all duration-1000" style={{ width: `${forPct}%` }} />
-                      <div className="h-full bg-error flex-1" />
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">
-                      <span>Quorum Progress</span>
-                      <span>{quorumPct}% of {proposal.quorum.toLocaleString()} needed</span>
-                    </div>
-                    <div className="w-full h-1.5 bg-surface-container-high overflow-hidden">
-                      <div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${quorumPct}%` }} />
-                    </div>
-                  </div>
-
-                  {isActive && currentUser && (
-                    <div className="flex gap-4">
-                      <Button
-                        variant={myVote === "for" ? "primary" : "outline"}
-                        className="flex-1"
-                        onClick={() => handleMockVote(proposal.id, "for")}
-                        disabled={!!myVote || cineBalance === 0}
-                      >
-                        <ThumbsUp className="h-4 w-4 mr-2" />
-                        {myVote === "for" ? "Voted For" : "Vote For"}
-                      </Button>
-                      <Button
-                        variant={myVote === "against" ? "secondary" : "outline"}
-                        className={`flex-1 ${myVote === "against" ? "bg-error text-white border-error" : ""}`}
-                        onClick={() => handleMockVote(proposal.id, "against")}
-                        disabled={!!myVote || cineBalance === 0}
-                      >
-                        <ThumbsDown className="h-4 w-4 mr-2" />
-                        {myVote === "against" ? "Voted Against" : "Vote Against"}
-                      </Button>
-                    </div>
-                  )}
-                  {cineBalance === 0 && isActive && (
-                    <p className="mt-3 text-center font-label text-xs uppercase tracking-widest text-error">
-                      You need CC tokens to vote
-                    </p>
-                  )}
-                </div>
-              );
-            })}
           </div>
 
           {/* Sidebar */}

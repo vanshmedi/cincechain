@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { CheckCircle2, Sparkles, Wallet, X } from "lucide-react";
-import { films } from "../data/mockData";
+import { type DbFilm } from "../lib/supabase";
+import { fetchDbFilmById } from "../lib/auth";
 
 interface TokenPurchaseFlowProps {
-  filmId: number;
+  filmId: string;
   tierName: string;
   price: number; // in CC
   onClose: () => void;
   onConfirm: (price: number) => void;
   cineCredits: number;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
 }
 
 export function TokenPurchaseFlow({
@@ -23,13 +24,21 @@ export function TokenPurchaseFlow({
   cineCredits,
   setView,
 }: TokenPurchaseFlowProps) {
-  const film = films.find((f) => f.id === filmId) || films[0];
-  const [step, setStep] = useState<"confirm" | "processing" | "done">("confirm");
+  const [film, setFilm] = useState<DbFilm | null>(null);
+  const [step, setStep] = useState<"loading" | "confirm" | "processing" | "done">("loading");
+
+  useEffect(() => {
+    fetchDbFilmById(filmId).then((data) => {
+      setFilm(data);
+      setStep("confirm");
+    });
+  }, [filmId]);
 
   // Generate a mock watermark session ID
-  const sessionId = `WM-${film.title.replace(/\s/g, "").substring(0, 4).toUpperCase()}-${filmId}-${Date.now().toString(36).toUpperCase()}`;
+  const sessionId = film ? `WM-${film.title.replace(/\s/g, "").substring(0, 4).toUpperCase()}-${filmId}-${Date.now().toString(36).toUpperCase()}` : "";
+  const meta = film?.revenue_split as any;
   const protocolFee = Math.round(price * 0.05); // 5% protocol fee
-  const directorShare = Math.round(price * (film.revenueSplit.director / 100));
+  const directorShare = Math.round(price * ((meta?.director || 60) / 100));
   const crewShare = price - protocolFee - directorShare;
 
   const handleMint = async () => {
@@ -52,7 +61,13 @@ export function TokenPurchaseFlow({
           <X className="h-5 w-5" />
         </button>
 
-        {step === "confirm" && (
+        {step === "loading" && (
+          <div className="p-8 pt-10 text-center text-on-surface-variant">
+             Loading details...
+          </div>
+        )}
+
+        {step === "confirm" && film && (
           <div className="p-8 pt-10">
             <h2 className="text-3xl font-headline font-black uppercase tracking-tight mb-2">
               Confirm Mint
@@ -123,7 +138,7 @@ export function TokenPurchaseFlow({
           </div>
         )}
 
-        {step === "done" && (
+        {step === "done" && film && (
           <div className="p-8 pt-10">
             <div className="text-center mb-8">
               <div className="w-20 h-20 mx-auto mb-6 bg-primary/10 flex items-center justify-center">

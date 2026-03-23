@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { marketListings as mockListings } from "../data/mockData";
 import { ArrowUpRight, TrendingUp, Wallet, ShieldCheck, RefreshCw, Tag } from "lucide-react";
 import type { DbUser, DbMarketListing } from "../lib/supabase";
 import { fetchMarketListings, cancelMarketListing } from "../lib/auth";
 
 interface MarketScreenProps {
   cineCredits: number;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   selectedMarketItem: number | null;
   currentUser: DbUser | null;
 }
@@ -63,10 +62,6 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
     setDbListings(prev => prev.filter(l => l.id !== listing.id));
   };
 
-  const filteredMockListings = filter === "All"
-    ? mockListings
-    : mockListings.filter((l) => l.tokenType === filter);
-
   const filteredDbListings = dbListings.filter(
     (item) => filter === "All" || item.token_type === filter
   );
@@ -113,7 +108,7 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-4 gap-8 text-center">
             {[
-              { label: "Active Listings", value: (filteredMockListings.length + filteredDbListings.length).toString(), color: "text-on-surface" },
+              { label: "Active Listings", value: filteredDbListings.length.toString(), color: "text-on-surface" },
               { label: "24h Volume", value: "14,200 CC", color: "text-primary" },
               { label: "Filmmaker Royalties Paid", value: "12,420 CC", color: "text-tertiary" },
               { label: "Protocol Fee", value: "5%", color: "text-secondary" },
@@ -258,105 +253,9 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
             );
           })}
 
-          {/* Mock Listings */}
-          {filteredMockListings.map((listing) => {
-            const canAfford = cineCredits >= listing.askPrice;
-            const premiumPct = Math.round(((listing.askPrice - listing.originalPrice) / listing.originalPrice) * 100);
-
-            return (
-              <div
-                key={listing.id}
-                className="bg-surface-container-lowest border border-outline-variant shadow-film hover:-translate-y-1 hover:shadow-film-hover transition-all duration-300 overflow-hidden relative group"
-              >
-                {/* Token type badge */}
-                <div
-                  className={`absolute top-4 left-4 z-10 font-label text-xs uppercase tracking-widest px-3 py-1 font-bold ${listing.tokenType === "Collector"
-                    ? "bg-secondary text-white"
-                    : listing.tokenType === "Ownership"
-                      ? "bg-primary text-white"
-                      : "bg-on-surface text-surface-container-lowest"
-                    }`}
-                >
-                  {listing.tokenType}
-                </div>
-
-                <div className="flex">
-                  <div className="w-40 h-40 flex-shrink-0 relative overflow-hidden">
-                    <img
-                      src={listing.filmImage}
-                      alt={listing.filmTitle}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface-container-lowest/20" />
-                  </div>
-
-                  <div className="flex-1 p-6">
-                    <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">
-                      {listing.filmTitle}
-                    </h3>
-                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-4">
-                      Token {listing.tokenNumber} · Seller {listing.seller}
-                    </p>
-
-                    <div className="flex items-end justify-between mb-4">
-                      <div>
-                        <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Ask Price</p>
-                        <p className="font-headline font-black text-2xl">{listing.askPrice.toLocaleString()} CC</p>
-                        <p className="font-label text-xs text-on-surface-variant">= ${(listing.askPrice * 0.10).toFixed(0)}</p>
-                      </div>
-                      <div className="text-right">
-                        <span
-                          className={`inline-block font-label text-xs uppercase tracking-widest px-2 py-1 font-bold ${premiumPct > 0 ? "bg-tertiary/10 text-tertiary" : "bg-error/10 text-error"
-                            }`}
-                        >
-                          {premiumPct > 0 ? "+" : ""}{premiumPct}% vs mint
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Filmmaker royalty (10%)</span>
-                        <span>{Math.round(listing.askPrice * 0.10).toLocaleString()} CC</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Protocol fee (5%)</span>
-                        <span>{Math.round(listing.askPrice * 0.05).toLocaleString()} CC</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-on-surface">
-                        <span>Seller receives</span>
-                        <span>{listing.sellerReceives.toLocaleString()} CC</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      className="w-full"
-                      variant={canAfford ? "primary" : "outline"}
-                      size="sm"
-                      disabled={!canAfford}
-                      onClick={() => {
-                        if (currentUser?.wallet_address?.startsWith("privy-")) {
-                          alert("Connect a wallet to access this feature");
-                          return;
-                        }
-                        if (cineCredits < listing.askPrice) {
-                          alert(`Not enough CineCredits. You need ${listing.askPrice} CC.`);
-                        } else {
-                          alert(`Purchase confirmed! ${listing.filmTitle} ${listing.tokenType} #${listing.tokenNumber} acquired for ${listing.askPrice} CC.`);
-                        }
-                      }}
-                    >
-                      {canAfford ? "Buy Now" : `Need ${(listing.askPrice - cineCredits).toLocaleString()} more CC`}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
 
-        {filteredMockListings.length === 0 && filteredDbListings.length === 0 && (
+        {filteredDbListings.length === 0 && (
           <div className="text-center py-24">
             <p className="font-headline font-bold text-3xl uppercase tracking-tight text-on-surface-variant mb-4">
               No {filter} listings

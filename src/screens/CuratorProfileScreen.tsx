@@ -1,21 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { Polaroid } from "../components/ui/Polaroid";
-import { curators, films } from "../data/mockData";
 import { Star, Award, TrendingUp, Film } from "lucide-react";
+import type { DbFilm } from "../lib/supabase";
+import { fetchDbFilms } from "../lib/auth";
 
 interface CuratorProfileScreenProps {
   curatorHandle: string;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
 }
+
+// Inline mock curator profile to preserve UX until a backend table is added
+const fallbackCurator = {
+  id: 1,
+  handle: "lensflare",
+  displayName: "Nadine R.",
+  bio: "Former festival programmer turned decentralized cinema advocate. Searching for bold voices in Latin American sci-fi and global documentaries.",
+  avatar: "NR",
+  memberSince: "2023",
+  reputation: 94,
+  endorsements: 12,
+  totalVolume: 450000,
+};
 
 export function CuratorProfileScreen({ curatorHandle, setView }: CuratorProfileScreenProps) {
   const [isFollowing, setIsFollowing] = useState(false);
+  const [dbFilms, setDbFilms] = useState<DbFilm[]>([]);
 
-  // Default to first curator if handle not found
-  const curator = curators.find((c) => c.handle === curatorHandle) || curators[0];
-  const endorsedFilms = films.filter((f) => curator.endorsedFilms.includes(f.id));
+  useEffect(() => {
+    fetchDbFilms().then(setDbFilms);
+  }, []);
+
+  const curator = fallbackCurator;
+  curator.handle = curatorHandle || fallbackCurator.handle;
+  
+  // Use recent DB films as endorsed films
+  const endorsedFilms = dbFilms.slice(0, 3);
 
   const reputationColor =
     curator.reputation >= 90 ? "text-primary" : curator.reputation >= 75 ? "text-tertiary" : "text-on-surface";
@@ -86,31 +107,29 @@ export function CuratorProfileScreen({ curatorHandle, setView }: CuratorProfileS
               <Film className="h-6 w-6 text-primary mr-3" />
               <h2 className="text-3xl font-headline font-bold uppercase tracking-tight">Endorsed Films</h2>
             </div>
+            
+            {endorsedFilms.length === 0 && (
+              <p className="text-surface-variant italic font-body">No films endorsed yet or loading...</p>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
               {endorsedFilms.map((film) => (
                 <div
                   key={film.id}
                   className="group cursor-pointer"
-                  onClick={() => setView("film", film.id)}
+                  onClick={() => setView("film", String(film.id))}
                 >
                   <div className="relative">
                     <Polaroid
-                      imageUrl={film.image}
+                      imageUrl={film.poster_url || `https://picsum.photos/seed/${film.id}/400/300`}
                       title={film.title}
-                      subtitle={`${film.genre} · ${film.year}`}
+                      subtitle={`${film.genre || "Indie"} · ${film.year || "2024"}`}
                     />
                     {/* Curator badge overlay */}
                     <div className="absolute top-2 left-2 bg-secondary text-white font-label text-xs uppercase tracking-widest px-2 py-1 font-bold flex items-center">
                       <Star className="h-3 w-3 mr-1" />
                       Endorsed
                     </div>
-                    {/* Festival badges */}
-                    {film.festivalBadges.slice(0, 1).map((badge) => (
-                      <div key={badge} className="absolute bottom-10 left-2 right-2 bg-primary text-white font-label text-xs uppercase tracking-widest px-2 py-1 font-bold flex items-center">
-                        <Award className="h-3 w-3 mr-1" />
-                        {badge}
-                      </div>
-                    ))}
                   </div>
                 </div>
               ))}
@@ -134,7 +153,7 @@ export function CuratorProfileScreen({ curatorHandle, setView }: CuratorProfileS
                       <p className="font-label text-xs uppercase tracking-widest text-outline-variant">Endorsed</p>
                     </div>
                     <span className="font-label text-xs uppercase tracking-widest text-outline-variant">
-                      {film.genre}
+                      {film.genre || "Indie"}
                     </span>
                   </div>
                 ))}

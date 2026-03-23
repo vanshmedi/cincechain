@@ -33,7 +33,7 @@ import { UserOnboardingScreen } from "./screens/UserOnboardingScreen";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("landing");
-  const [selectedFilmId, setSelectedFilmId] = useState<number>(1);
+  const [selectedFilmId, setSelectedFilmId] = useState<string>("");
   const [selectedCuratorHandle, setSelectedCuratorHandle] = useState<string>("CineVault Curator");
   const [selectedMarketItem, setSelectedMarketItem] = useState<number | null>(null);
 
@@ -66,12 +66,12 @@ export default function App() {
   }, []);
 
   // Token purchase flow state
-  const [purchaseFilmId, setPurchaseFilmId] = useState<number | null>(null);
+  const [purchaseFilmId, setPurchaseFilmId] = useState<string | null>(null);
   const [purchaseTier, setPurchaseTier] = useState<string>("");
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
 
   // Unified navigation handler
-  const navigate = (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => {
+  const navigate = (view: string, filmId?: string, curatorHandle?: string, marketItemId?: number) => {
     // Guest view restrictions
     const guestViews = ["landing", "gallery", "market", "community", "onboarding"];
     if (!currentUser && !guestViews.includes(view)) {
@@ -108,7 +108,7 @@ export default function App() {
     setCurrentView("landing");
   };
 
-  const handlePurchaseRequest = (filmId: number, tierName: string, price: number) => {
+  const handlePurchaseRequest = (filmId: string, tierName: string, price: number) => {
     if (!walletAddress) {
       setShowWalletModal(true);
       return;
@@ -128,7 +128,7 @@ export default function App() {
     try {
       const updatedUser = await purchaseFilmToken(
         currentUser.id,
-        purchaseFilmId.toString(),
+        purchaseFilmId,
         purchaseTier.toLowerCase() as any,
         price
       );

@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { films } from "../data/mockData";
 import {
   Film, BarChart3, Users, Settings, Shield, Upload, TrendingUp, DollarSign, Eye, 
   Layers, Calendar, ChevronRight, LogIn, Save, ShieldAlert, ExternalLink, Download
 } from "lucide-react";
 import type { DbUser, DbFilm } from "../lib/supabase";
 import { fetchFilmmakerFilms, updateUserProfile } from "../lib/auth";
-import { piracyDetections } from "../data/mockData";
 
 interface StudioScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   currentUser: DbUser | null;
 }
 
@@ -55,11 +53,14 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
   };
 
   const quickStats = [
-    { label: "Total Films", value: (dbFilms.length + 3).toString(), color: "text-primary", icon: Film },
+    { label: "Total Films", value: dbFilms.length.toString(), color: "text-primary", icon: Film },
     { label: "Total Revenue", value: "24,800 CC", color: "text-secondary", icon: DollarSign },
     { label: "Token Holders", value: "1,247", color: "text-tertiary", icon: Users },
     { label: "Active Streams", value: "89", color: "text-on-surface", icon: Eye },
   ];
+  
+  // Empty array until user adds the piracy_detections table
+  const dbPiracyDetections: any[] = [];
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -170,22 +171,6 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
                   </span>
                 </div>
               ))}
-              {films.slice(0, 3).map((film) => (
-                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-4 flex items-center shadow-film hover:shadow-film-hover transition-all duration-300">
-                  <img src={film.image} alt={film.title} className="w-20 h-14 object-cover mr-4" referrerPolicy="no-referrer" />
-                  <div className="flex-1">
-                    <h3 className="font-headline font-bold uppercase tracking-tight">{film.title}</h3>
-                    <p className="font-label text-xs uppercase tracking-widest text-on-surface-variant">{film.status} · {film.genre}</p>
-                  </div>
-                  <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
-                    film.status === "Funded" ? "bg-tertiary/10 text-tertiary" :
-                    film.status === "Now Minting" ? "bg-primary/10 text-primary" :
-                    "bg-secondary/10 text-secondary"
-                  }`}>
-                    {film.status}
-                  </span>
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -238,37 +223,6 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
                 </div>
               </div>
             )}
-
-            {/* Mock films */}
-            <h3 className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-4">All Projects</h3>
-            <div className="space-y-4">
-              {films.map((film) => (
-                <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film">
-                  <div className="flex items-center">
-                    <img src={film.image} alt={film.title} className="w-28 h-20 object-cover mr-6" referrerPolicy="no-referrer" />
-                    <div className="flex-1">
-                      <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-1">{film.title}</h3>
-                      <p className="font-body text-sm text-on-surface-variant mb-2">{film.synopsis.substring(0, 100)}...</p>
-                      <div className="flex gap-4 font-label text-xs uppercase tracking-widest text-on-surface-variant">
-                        <span>Dir: {film.director}</span>
-                        <span>Year: {film.year}</span>
-                        <span>Genre: {film.genre}</span>
-                      </div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <span className={`px-3 py-1 font-label text-xs uppercase tracking-widest font-bold ${
-                        film.status === "Funded" ? "bg-tertiary/10 text-tertiary" :
-                        film.status === "Now Minting" ? "bg-primary/10 text-primary" :
-                        "bg-secondary/10 text-secondary"
-                      }`}>
-                        {film.status}
-                      </span>
-                      <p className="font-headline font-bold text-lg mt-2 text-primary">{film.fundingRaised.toLocaleString()} CC</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
 
             {dbFilms.length === 0 && (
               <div className="text-center py-12 bg-surface-container-lowest border border-outline-variant shadow-film mt-8">
@@ -359,7 +313,7 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
             </h1>
 
             <div className="space-y-6">
-              {films.slice(0, 3).map((film) => (
+              {dbFilms.slice(0, 3).map((film) => (
                 <div key={film.id} className="bg-surface-container-lowest border border-outline-variant p-8 shadow-film relative overflow-hidden">
                   <RainbowStripe className="absolute top-0 left-0 h-1" />
                   <div className="flex items-start justify-between mb-6">
@@ -375,10 +329,10 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
                   <h4 className="font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-4">Revenue Split (On-Chain)</h4>
                   <div className="space-y-3 mb-6">
                     {[
-                      { party: "Director", pct: film.revenueSplit.director, color: "bg-primary" },
-                      { party: "Producer", pct: film.revenueSplit.producer, color: "bg-secondary" },
-                      { party: "Crew", pct: film.revenueSplit.crew, color: "bg-tertiary" },
-                      { party: "Protocol", pct: film.revenueSplit.protocol, color: "bg-outline-variant" },
+                      { party: "Director", pct: 40, color: "bg-primary" },
+                      { party: "Producer", pct: 30, color: "bg-secondary" },
+                      { party: "Crew", pct: 20, color: "bg-tertiary" },
+                      { party: "Protocol", pct: 10, color: "bg-outline-variant" },
                     ].map((item) => (
                       <div key={item.party} className="flex items-center gap-4">
                         <span className="w-24 font-label text-xs uppercase tracking-widest text-on-surface-variant">{item.party}</span>
@@ -417,8 +371,8 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
 
             <div className="grid grid-cols-3 gap-6 mb-8">
               {[
-                { label: "Active", value: piracyDetections.filter(d => d.status !== "Resolved").length.toString(), color: "text-error" },
-                { label: "Resolved", value: piracyDetections.filter(d => d.status === "Resolved").length.toString(), color: "text-tertiary" },
+                { label: "Active", value: dbPiracyDetections.filter(d => d.status !== "Resolved").length.toString(), color: "text-error" },
+                { label: "Resolved", value: dbPiracyDetections.filter(d => d.status === "Resolved").length.toString(), color: "text-tertiary" },
                 { label: "Films Monitored", value: "6", color: "text-on-surface" },
               ].map((s) => (
                 <div key={s.label} className="bg-surface-container-lowest border border-outline-variant p-6 text-center shadow-film">
@@ -429,7 +383,7 @@ export function StudioScreen({ setView, currentUser }: StudioScreenProps) {
             </div>
 
             <div className="space-y-4">
-              {piracyDetections.map((detection) => (
+              {dbPiracyDetections.map((detection) => (
                 <div key={detection.id} className="bg-surface-container-lowest border border-outline-variant p-6 shadow-film flex items-center">
                   <img src={detection.filmImage} alt={detection.filmTitle} className="w-16 h-12 object-cover mr-4" referrerPolicy="no-referrer" />
                   <div className="flex-1 min-w-0">

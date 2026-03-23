@@ -5,7 +5,7 @@ import type { DbFilm } from "../lib/supabase";
 import { fetchDbFilms } from "../lib/auth";
 
 interface LandingScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   onConnect: () => void;
 }
 

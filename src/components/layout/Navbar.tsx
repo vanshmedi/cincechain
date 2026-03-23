@@ -5,7 +5,7 @@ import { useState } from "react";
 
 interface NavbarProps {
   currentView: string;
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   walletAddress: string | null;
   cineCredits: number;
   onConnect: () => void;

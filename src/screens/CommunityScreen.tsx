@@ -6,7 +6,7 @@ import type { DbUser, DbThread, DbThreadReply } from "../lib/supabase";
 import { fetchThreads, createThread, fetchThreadReplies, createThreadReply } from "../lib/auth";
 
 interface CommunityScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   currentUser: DbUser | null;
   onConnect: () => void;
 }

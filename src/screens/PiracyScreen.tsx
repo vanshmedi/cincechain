@@ -1,13 +1,14 @@
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { piracyDetections } from "../data/mockData";
 import { ShieldAlert, ShieldCheck, AlertTriangle, ExternalLink, Download } from "lucide-react";
 
 interface PiracyScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string) => void;
 }
 
 export function PiracyScreen({ setView }: PiracyScreenProps) {
+  const dbPiracyDetections: any[] = [];
+
   const severityColor = (s: string) => {
     if (s === "High") return "text-error bg-error/10";
     if (s === "Medium") return "text-tertiary bg-tertiary/10";
@@ -51,8 +52,8 @@ export function PiracyScreen({ setView }: PiracyScreenProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-3 gap-8 text-center">
             {[
-              { label: "Active Detections", value: piracyDetections.filter(d => d.status !== "Resolved").length.toString(), color: "text-error" },
-              { label: "Resolved", value: piracyDetections.filter(d => d.status === "Resolved").length.toString(), color: "text-tertiary" },
+              { label: "Active Detections", value: dbPiracyDetections.filter(d => d.status !== "Resolved").length.toString(), color: "text-error" },
+              { label: "Resolved", value: dbPiracyDetections.filter(d => d.status === "Resolved").length.toString(), color: "text-tertiary" },
               { label: "Films Monitored", value: "6", color: "text-on-surface" },
             ].map((s) => (
               <div key={s.label}>
@@ -74,7 +75,7 @@ export function PiracyScreen({ setView }: PiracyScreenProps) {
         </div>
 
         <div className="space-y-6">
-          {piracyDetections.map((detection) => (
+          {dbPiracyDetections.map((detection) => (
             <div
               key={detection.id}
               className="bg-surface-container-lowest border border-outline-variant shadow-film overflow-hidden"

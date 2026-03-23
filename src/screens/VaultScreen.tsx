@@ -7,7 +7,7 @@ import type { DbUser } from "../lib/supabase";
 import { getUserActiveListings, createMarketListing, cancelMarketListing, subscribeToCinePass } from "../lib/auth";
 
 interface VaultScreenProps {
-  setView: (view: string, filmId?: number, curatorHandle?: string, marketItemId?: number) => void;
+  setView: (view: string, filmId?: string, curatorHandle?: string, marketItemId?: number) => void;
   currentUser: DbUser | null;
   onConnect: () => void;
   onSubscribe: (tier: string, bonus: number) => void;
