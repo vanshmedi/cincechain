@@ -1,0 +1,30 @@
+{
+  "name": "cinechain",
+  "version": "1.0.0",
+  "description": "Decentralized film distribution protocol",
+  "type": "module",
+  "scripts": {
+    "compile":    "hardhat compile",
+    "test":       "hardhat test",
+    "test:gas":   "REPORT_GAS=true hardhat test",
+    "deploy:sepolia": "hardhat run scripts/deploy.cjs --network sepolia",
+    "deploy:local":   "hardhat run scripts/deploy.js --network hardhat",
+    "node":       "hardhat node",
+    "dev":        "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "ethers": "^6.11.1",
+    "express": "^4.18.3",
+    "knex": "^3.1.0",
+    "nft.storage": "^7.1.1",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.2",
+    "chai": "^4.4.1"
+  }
+}
