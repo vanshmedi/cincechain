@@ -6,6 +6,7 @@ import { supabase, type DbFilm } from "../lib/supabase";
 import { fetchDbFilmById } from "../lib/auth";
 
 interface TokenPurchaseFlowProps {
+  userId: string;
   filmId: string;
   tierName: string;
   price: number; // in CC
@@ -16,6 +17,7 @@ interface TokenPurchaseFlowProps {
 }
 
 export function TokenPurchaseFlow({
+  userId,
   filmId,
   tierName,
   price,
@@ -46,8 +48,6 @@ export function TokenPurchaseFlow({
     setStep("processing");
     setMintData(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
       if (!userId) throw new Error("Not logged in");
 
       const response = await fetch(`/api/films/${filmId}/purchase`, {

@@ -109,7 +109,7 @@ export function GalleryScreen({ setView }: GalleryScreenProps) {
             <RainbowStripe className="absolute top-0 left-0 h-2" />
             <div className="flex flex-col md:flex-row gap-8">
               <div className="md:w-1/2 aspect-video bg-surface-container overflow-hidden">
-                <img src={featured.image} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                <img src={featured.poster_url || ""} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
               </div>
               <div className="md:w-1/2 flex flex-col justify-center">
                 <div className="flex gap-3 items-center mb-4">

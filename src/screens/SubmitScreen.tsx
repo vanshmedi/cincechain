@@ -4,7 +4,7 @@ import { uploadFilm } from "../lib/auth";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { Upload, Camera, Info, Plus, Minus } from "lucide-react";
-import type { DbUser } from "../lib/supabase";
+import { supabase, type DbUser } from "../lib/supabase";
 
 interface SubmitScreenProps {
   setView: (view: string, filmId?: string, curatorHandle?: string) => void;
@@ -26,6 +26,14 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
   const [synopsis, setSynopsis] = useState("");
   const [distributionModel, setDistributionModel] = useState<"public" | "private">("public");
   const [step, setStep] = useState<"form" | "review" | "minting" | "done">("form");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ video: number; thumbnail: number }>({ video: 0, thumbnail: 0 });
+  const [pricing, setPricing] = useState({
+    rental: 150,
+    ownership: 500,
+    collector: 2500
+  });
 
   // Revenue split recipients (director always first, remaining is available)
   const [recipients, setRecipients] = useState<RecipientSplit[]>([
@@ -57,18 +65,89 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !director) return;
+    if (!title || !director || !videoFile) {
+      alert("Please ensure title, director, and master video file are provided.");
+      return;
+    }
     setStep("review");
   };
 
   const handleRegister = async () => {
     setStep("minting");
     try {
-      const revenueSplit: Record<string, number> = {};
+      if (!videoFile) {
+        alert("Please upload a master video file.");
+        setStep("form");
+        return;
+      }
+
+      // Simulate a small progress update UX
+      setUploadProgress({ video: 0, thumbnail: 0 });
+      const progressInterval = setInterval(() => {
+        setUploadProgress(p => ({
+          video: Math.min(95, p.video + 5),
+          thumbnail: Math.min(95, p.thumbnail + 10)
+        }));
+      }, 500);
+
+      // Upload Video
+      const videoExt = videoFile.name.split('.').pop();
+      const videoPath = `${currentUser?.id}/${Date.now()}_video.${videoExt}`;
+      const { error: videoError } = await supabase.storage
+        .from('film-videos')
+        .upload(videoPath, videoFile, { upsert: false });
+      
+      if (videoError) {
+        clearInterval(progressInterval);
+        alert(`Failed to upload video: ${videoError.message}`);
+        setStep("form");
+        return; // Block submission
+      }
+
+      setUploadProgress(p => ({ ...p, video: 100 }));
+      const { data: videoData } = supabase.storage.from('film-videos').getPublicUrl(videoPath);
+      const finalVideoUrl = videoData.publicUrl;
+
+      // Upload Thumbnail
+      let finalThumbnailUrl = undefined;
+      if (thumbnailFile) {
+        const thumbExt = thumbnailFile.name.split('.').pop();
+        const thumbPath = `${currentUser?.id}/${Date.now()}_thumb.${thumbExt}`;
+        const { error: thumbError } = await supabase.storage
+          .from('film-thumbnails')
+          .upload(thumbPath, thumbnailFile, { upsert: false });
+        
+        if (thumbError) {
+          alert(`Thumbnail upload failed: ${thumbError.message}. Proceeding without thumbnail.`);
+        } else {
+          setUploadProgress(p => ({ ...p, thumbnail: 100 }));
+          const { data: thumbData } = supabase.storage.from('film-thumbnails').getPublicUrl(thumbPath);
+          finalThumbnailUrl = thumbData.publicUrl;
+        }
+      }
+      
+      clearInterval(progressInterval);
+
+      const revenueSplit: Record<string, any> = {};
       recipients.forEach(r => {
         if (r.name) revenueSplit[r.name.toLowerCase()] = r.pct;
       });
       revenueSplit.protocol = PROTOCOL_FEE;
+      
+      revenueSplit.rental_price_credits = pricing.rental;
+      revenueSplit.rental_price_usdc = pricing.rental / 10;
+      
+      revenueSplit.ownership_price_credits = pricing.ownership;
+      revenueSplit.ownership_price_usdc = pricing.ownership / 10;
+
+      revenueSplit.collector_price_credits = pricing.collector;
+      revenueSplit.collector_price_usdc = pricing.collector / 10;
+
+      revenueSplit.tokens = {
+        rental: { price: pricing.rental, supply: 5000, remaining: 5000 },
+        ownership: { price: pricing.ownership, supply: 1000, remaining: 1000 },
+        collector: { price: pricing.collector, supply: 100, remaining: 100 },
+      };
 
       await uploadFilm({
         title,
@@ -78,6 +157,8 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
         genre: genre || undefined,
         filmakerId: currentUser?.id,
         revenueSplit,
+        videoUrl: finalVideoUrl,
+        thumbnailUrl: finalThumbnailUrl,
       });
       setStep("done");
     } catch (e) {
@@ -107,6 +188,22 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
                   <span className="font-body font-bold text-on-surface">{item.value}</span>
                 </div>
               ))}
+            </div>
+
+            <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-4 mt-8">Token Prices</h3>
+            <div className="flex gap-4 mb-10">
+              <div className="flex-1 border border-outline-variant p-4 text-center">
+                <span className="block font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Rental</span>
+                <span className="font-headline font-bold">{pricing.rental} CC</span>
+              </div>
+              <div className="flex-1 border border-outline-variant p-4 text-center">
+                <span className="block font-label text-xs uppercase tracking-widest text-on-surface-variant mb-1">Ownership</span>
+                <span className="font-headline font-bold">{pricing.ownership} CC</span>
+              </div>
+              <div className="flex-1 border border-primary/30 bg-primary/5 p-4 text-center">
+                <span className="block font-label text-xs uppercase tracking-widest text-primary mb-1">Collector</span>
+                <span className="font-headline font-bold">{pricing.collector} CC</span>
+              </div>
             </div>
 
             <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-4">Revenue Split</h3>
@@ -141,13 +238,34 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
   if (step === "minting") {
     return (
       <div className="w-full pt-16 bg-surface min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center w-full max-w-lg px-4">
           <div className="w-24 h-24 mx-auto mb-6 relative">
             <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
             <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-          <h2 className="text-4xl font-headline font-black uppercase tracking-tight mb-2">Registering...</h2>
-          <p className="font-body text-on-surface-variant">Writing your film contract to the chain.</p>
+          <h2 className="text-4xl font-headline font-black uppercase tracking-tight mb-2">Uploading & Registering...</h2>
+          <p className="font-body text-on-surface-variant mb-8">Securing assets and writing your metadata to the chain.</p>
+          
+          <div className="space-y-6 text-left">
+            <div>
+              <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-2">
+                <span>Video Upload</span>
+                <span>{uploadProgress.video}%</span>
+              </div>
+              <div className="w-full h-2 bg-surface-container-high overflow-hidden">
+                <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress.video}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between font-label text-xs uppercase tracking-widest text-on-surface-variant mb-2">
+                <span>Thumbnail Upload</span>
+                <span>{uploadProgress.thumbnail}%</span>
+              </div>
+              <div className="w-full h-2 bg-surface-container-high overflow-hidden">
+                <div className="h-full bg-tertiary transition-all duration-300" style={{ width: `${uploadProgress.thumbnail}%` }} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -205,15 +323,57 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
                   <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                     <Upload className="h-8 w-8 text-on-surface-variant" />
                   </div>
-                  <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-2">Drag & Drop Master File</h3>
+                  <h3 className="font-headline font-bold text-xl uppercase tracking-tight mb-2">
+                    {videoFile ? videoFile.name : "Drag & Drop Master File"}
+                  </h3>
                   <p className="font-body text-on-surface-variant text-sm max-w-xs mx-auto">
-                    Supports MP4, MOV, ProRes up to 50GB. High-res poster art and stills required.
+                    Supports MP4, MOV, WebM.
                   </p>
-                  <Button variant="outline" className="mt-8">Browse Files</Button>
+                  <label className="mt-8 inline-block select-none cursor-pointer">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="video/mp4,video/quicktime,video/webm" 
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) setVideoFile(e.target.files[0]);
+                      }} 
+                    />
+                    <div className="bg-surface-container-high hover:bg-surface-container text-on-surface font-label text-sm uppercase tracking-widest px-6 py-3 font-bold transition-colors">
+                      {videoFile ? "Change VideoFile" : "Browse Files"}
+                    </div>
+                  </label>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div>
+                <h2 className="text-xl font-headline font-bold uppercase tracking-tight mb-4 flex items-center">
+                  <Camera className="mr-3 h-5 w-5 text-primary" />
+                  Thumbnail Image
+                </h2>
+                <div className="border-2 border-dashed border-outline-variant bg-surface-container-lowest p-6 text-center hover:bg-surface-container transition-colors cursor-pointer group">
+                  <h3 className="font-headline font-bold text-lg uppercase tracking-tight mb-2">
+                    {thumbnailFile ? thumbnailFile.name : "Select Thumbnail"}
+                  </h3>
+                  <p className="font-body text-on-surface-variant text-xs max-w-xs mx-auto">
+                    Supports JPG, PNG, WebP. High-res poster art required.
+                  </p>
+                  <label className="mt-4 inline-block select-none cursor-pointer">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/jpeg,image/png,image/webp" 
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) setThumbnailFile(e.target.files[0]);
+                      }} 
+                    />
+                    <div className="border border-outline-variant hover:border-on-surface text-on-surface font-label text-xs uppercase tracking-widest px-4 py-2 font-bold transition-colors">
+                      {thumbnailFile ? "Change Thumbnail" : "Browse Image"}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 hidden">
                 {["Poster", "Still 1", "Still 2"].map((label) => (
                   <div
                     key={label}
@@ -402,6 +562,26 @@ export function SubmitScreen({ setView, currentUser }: SubmitScreenProps) {
                       {distributionModel === "private" && <div className="absolute top-2 right-2 w-3 h-3 bg-primary rounded-full" />}
                       <h4 className="font-headline font-bold uppercase tracking-tight mb-1">Private Sale</h4>
                       <p className="font-body text-xs text-on-surface-variant">Restricted to Auteur tier. Custom revenue parameters.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-8 border-t border-outline-variant/50">
+                  <h3 className="text-xl font-headline font-bold uppercase tracking-tight mb-4 flex items-center">
+                    Token Pricing (CC)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Rental</label>
+                      <input type="number" value={pricing.rental} onChange={e => setPricing({...pricing, rental: parseInt(e.target.value) || 0})} className="w-full bg-transparent border-b-2 border-outline-variant py-2 font-headline font-bold text-on-surface focus:outline-none focus:border-primary transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block font-label text-xs uppercase tracking-widest text-on-surface-variant font-bold mb-2">Ownership</label>
+                      <input type="number" value={pricing.ownership} onChange={e => setPricing({...pricing, ownership: parseInt(e.target.value) || 0})} className="w-full bg-transparent border-b-2 border-outline-variant py-2 font-headline font-bold text-on-surface focus:outline-none focus:border-primary transition-colors" />
+                    </div>
+                    <div>
+                      <label className="block font-label text-xs uppercase tracking-widest text-tertiary font-bold mb-2">Collector</label>
+                      <input type="number" value={pricing.collector} onChange={e => setPricing({...pricing, collector: parseInt(e.target.value) || 0})} className="w-full bg-transparent border-b-2 border-outline-variant py-2 font-headline font-bold text-on-surface focus:outline-none focus:border-primary transition-colors" />
                     </div>
                   </div>
                 </div>

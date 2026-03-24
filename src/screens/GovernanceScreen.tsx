@@ -9,6 +9,7 @@ interface GovernanceScreenProps {
   cineBalance: number;
   currentUser: DbUser | null;
   onConnect: () => void;
+  onCreateProposal: (title: string, desc: string, type: string, deadline: string) => Promise<DbProposal | null>;
 }
 
 const PROPOSAL_TYPES = [
@@ -20,7 +21,7 @@ const PROPOSAL_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-export function GovernanceScreen({ cineBalance, currentUser, onConnect }: GovernanceScreenProps) {
+export function GovernanceScreen({ cineBalance, currentUser, onConnect, onCreateProposal }: GovernanceScreenProps) {
   const [dbProposals, setDbProposals] = useState<DbProposal[]>([]);
   const [userVotes, setUserVotes] = useState<Record<string, "for" | "against">>({});
   const [showComposer, setShowComposer] = useState(false);
@@ -47,21 +48,26 @@ export function GovernanceScreen({ cineBalance, currentUser, onConnect }: Govern
 
   const handleSubmitProposal = async () => {
     if (!currentUser || !newTitle.trim() || !newDesc.trim()) return;
+    if (cineBalance < 100) {
+      alert(`Insufficient CC. You need 100 CC to submit a proposal.`);
+      return;
+    }
     setPosting(true);
     try {
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + newDeadlineDays);
-      const proposal = await createProposal(
-        currentUser.id,
+      const proposal = await onCreateProposal(
         newTitle,
         newDesc,
         newType,
         deadline.toISOString()
       );
-      setDbProposals(prev => [proposal, ...prev]);
-      setNewTitle("");
-      setNewDesc("");
-      setShowComposer(false);
+      if (proposal) {
+        setDbProposals(prev => [proposal, ...prev]);
+        setNewTitle("");
+        setNewDesc("");
+        setShowComposer(false);
+      }
     } catch (err) {
       console.error("Failed to create proposal:", err);
     }

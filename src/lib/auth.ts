@@ -124,6 +124,67 @@ export async function refreshCCBalance(userId: string): Promise<number> {
   return data.credit_balance;
 }
 
+export async function fetchUserOwnedFilms(userId: string) {
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("id, token_id, status, films(*)")
+    .eq("user_id", userId)
+    .eq("status", "active");
+
+  if (error) {
+    console.error("[fetchUserOwnedFilms] failed:", error.message);
+    return [];
+  }
+  
+  console.log("[fetchUserOwnedFilms] Native DB Data Dump:", JSON.stringify(data, null, 2));
+
+  return (data || []).map((session: any) => {
+    const film = session.films;
+    if (!film) {
+      console.warn("[fetchUserOwnedFilms] Warning: Session found but film data is null/missing", session);
+    }
+    // Map database shape to VaultScreen collection item shape
+    return {
+      id: film.id, // Group by film.id so multiple tokens don't clash unless we want to, wait, UI uses id for activeListings mapping
+      sessionId: session.id,
+      title: film.title,
+      subtitle: `${(session.token_tier || "Ownership").charAt(0).toUpperCase() + (session.token_tier || "ownership").slice(1)} Token ${session.token_id ? '#' + session.token_id : ''}`,
+      image: film.poster_url || "https://picsum.photos/400/300",
+      rotation: ["rotate-1", "-rotate-2", "rotate-3", "-rotate-1"][Math.floor(Math.random() * 4)], 
+      tokenType: (session.token_tier || "Ownership").charAt(0).toUpperCase() + (session.token_tier || "ownership").slice(1),
+      videoUrl: film.video_url || ""
+    };
+  });
+}
+
+export async function fetchUserTransactions(userId: string) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*, films(title)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[fetchUserTransactions] failed:", error.message);
+    return [];
+  }
+
+  return (data || []).map((tx: any) => {
+    const isMint = tx.credits_spent > 0;
+    const filmTitle = tx.films?.title || "Unknown Asset";
+    
+    // Map DB columns to UI transaction interface
+    return {
+      date: new Date(tx.created_at).toISOString().split("T")[0],
+      type: isMint ? "Mint" : "Transfer",
+      asset: `${filmTitle} — ${tx.token_tier ? tx.token_tier.charAt(0).toUpperCase() + tx.token_tier.slice(1) : 'Ownership'}`,
+      amount: `${isMint ? '-' : '+'}${Math.abs(tx.credits_spent).toLocaleString()} CC`,
+      usd: `$${(Math.abs(tx.credits_spent) / 10).toFixed(2)}`,
+      status: tx.tx_hash ? "Confirmed" : "Pending"
+    };
+  });
+}
+
 export async function purchaseFilmToken(
   userId:    string,
   filmId:    string,
@@ -180,6 +241,8 @@ interface FilmUploadData {
   territories?: string[];
   revenueSplit?: Record<string, number>;
   filmakerId?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export async function uploadFilm(filmData: FilmUploadData): Promise<DbFilm> {
@@ -193,7 +256,8 @@ export async function uploadFilm(filmData: FilmUploadData): Promise<DbFilm> {
       year: filmData.year ?? null,
       genre: filmData.genre ?? null,
       runtime: 5400,
-      poster_url: `https://picsum.photos/seed/${encodeURIComponent(filmData.title ?? "film")}/600/400`,
+      poster_url: filmData.thumbnailUrl ?? `https://picsum.photos/seed/${encodeURIComponent(filmData.title ?? "film")}/600/400`,
+      video_url: filmData.videoUrl,
       genres: filmData.genres ?? ["Independent"],
       territories: filmData.territories ?? ["Global"],
       upload_status: "live",
@@ -211,16 +275,15 @@ export async function uploadFilm(filmData: FilmUploadData): Promise<DbFilm> {
 
 // ── Subscription Flow ──────────────────────────────────────────────────────
 
-export async function subscribeToCinePass(userId: string, tier: string, bonusCredits: number): Promise<DbUser> {
-  // Add bonus credits atomically
-  if (bonusCredits > 0) {
-    const { error: incrementErr } = await supabase.rpc("increment_credits", {
-      p_user_id: userId,
-      p_amount: bonusCredits
-    });
-    if (incrementErr) {
-      throw new Error(`[subscribeToCinePass] increment failed: ${incrementErr.message}`);
-    }
+export async function subscribeToCinePass(userId: string, tier: string, costCC: number): Promise<DbUser> {
+  // Deduct credits for the pass
+  const { data: success, error: deductErr } = await supabase.rpc("deduct_credits", {
+    p_user_id: userId,
+    p_amount: costCC
+  });
+
+  if (deductErr || success === false) {
+    throw new Error(`[subscribeToCinePass] credit deduction failed: ${deductErr?.message || "Insufficient funds"}`);
   }
 
   const { data: updatedUser, error: updateErr } = await supabase
@@ -335,6 +398,16 @@ export async function createProposal(
   proposalType: string,
   votingDeadline: string
 ): Promise<DbProposal> {
+  // Deduct proposal creation fee
+  const proposalFee = 100;
+  const { data: success, error: deductErr } = await supabase.rpc("deduct_credits", {
+    p_user_id: userId,
+    p_amount: proposalFee
+  });
+  if (deductErr || success === false) {
+    throw new Error(`[createProposal] credit deduction failed: ${deductErr?.message || "Insufficient funds"}`);
+  }
+
   const { data, error } = await supabase
     .from("proposals")
     .insert({
@@ -443,6 +516,49 @@ export async function createMarketListing(
 
   if (error || !data) throw new Error(`[createMarketListing] failed: ${error?.message}`);
   return data as any;
+}
+
+export async function purchaseMarketListing(buyerId: string, listingId: string, price: number): Promise<DbUser> {
+  // Deduct buyer credits
+  const { data: success, error: deductErr } = await supabase.rpc("deduct_credits", {
+    p_user_id: buyerId,
+    p_amount: price
+  });
+  if (deductErr || success === false) {
+    throw new Error(`[purchaseMarketListing] credit deduction failed: ${deductErr?.message || "Insufficient funds"}`);
+  }
+
+  // Calculate distributions
+  const royalty = Math.round(price * 0.10);
+  const protocolFee = Math.round(price * 0.05);
+  const sellerShare = price - royalty - protocolFee;
+
+  // Mark listing as sold
+  const { data: listing, error: updateErr } = await supabase
+    .from("market_listings")
+    .update({ status: "sold" } as any)
+    .eq("id", listingId)
+    .select("*")
+    .single();
+
+  if (updateErr) throw new Error(`[purchaseMarketListing] failed to close listing: ${updateErr.message}`);
+
+  // Payout seller (using increment_credits RPC)
+  if (listing && listing.seller_id) {
+    await supabase.rpc("increment_credits", {
+      p_user_id: listing.seller_id,
+      p_amount: sellerShare
+    });
+  }
+
+  // Get updated buyer
+  const { data: updatedUser } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", buyerId)
+    .single();
+
+  return updatedUser as DbUser;
 }
 
 export async function cancelMarketListing(listingId: string, userId: string): Promise<void> {

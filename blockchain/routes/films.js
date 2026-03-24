@@ -114,7 +114,7 @@ router.post("/:filmId/purchase", async (req, res) => {
     });
 
     // ── STORE OWNERSHIP (CRITICAL) ────────────
-    await supabase.from("sessions").insert({
+    const { error: sessionError } = await supabase.from("sessions").insert({
       user_id: userId,
       film_id: filmId,
       token_id: result.tokenId, // unique NFT
@@ -122,6 +122,11 @@ router.post("/:filmId/purchase", async (req, res) => {
       session_key_hash: "temp",
       status: "active",
     });
+
+    if (sessionError) {
+      console.error("[PurchaseFilm] Session insert failed:", sessionError);
+      // We don't abort the whole response since the tx happened, but we log the severity
+    }
 
     res.json({
       success: true,

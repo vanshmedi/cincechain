@@ -13,8 +13,10 @@ import {
   loginWithWallet, 
   loadWalletFromStorage, 
   clearWalletFromStorage,
-  purchaseFilmToken,
-  subscribeToCinePass
+  subscribeToCinePass,
+  purchaseMarketListing,
+  createProposal,
+  refreshCCBalance
 } from "./lib/auth";
 import { LandingScreen } from "./screens/LandingScreen";
 import { GalleryScreen } from "./screens/GalleryScreen";
@@ -30,12 +32,14 @@ import { PiracyScreen } from "./screens/PiracyScreen";
 import { CuratorProfileScreen } from "./screens/CuratorProfileScreen";
 import { FilmmakerRevenueDashboard } from "./screens/FilmmakerRevenueDashboard";
 import { UserOnboardingScreen } from "./screens/UserOnboardingScreen";
+import { VideoPlayerScreen } from "./screens/VideoPlayerScreen";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("landing");
-  const [selectedFilmId, setSelectedFilmId] = useState<string>("");
-  const [selectedCuratorHandle, setSelectedCuratorHandle] = useState<string>("CineVault Curator");
+  const [selectedFilmId, setSelectedFilmId] = useState<string | null>(null);
+  const [selectedCurator, setSelectedCurator] = useState<string | null>(null);
   const [selectedMarketItem, setSelectedMarketItem] = useState<number | null>(null);
+  const [activeVideo, setActiveVideo] = useState<{ title: string; url: string } | null>(null);
 
   // ── Auth state: full Supabase user row (null = logged out) ──────────────
   const [currentUser, setCurrentUser] = useState<DbUser | null>(null);
@@ -80,7 +84,7 @@ export default function App() {
     }
 
     if (filmId !== undefined) setSelectedFilmId(filmId);
-    if (curatorHandle !== undefined) setSelectedCuratorHandle(curatorHandle);
+    if (curatorHandle !== undefined) setSelectedCurator(curatorHandle);
     if (marketItemId !== undefined) {
       setSelectedMarketItem(marketItemId);
     } else if (view !== "market") {
@@ -126,15 +130,37 @@ export default function App() {
     }
 
     try {
-      const updatedUser = await purchaseFilmToken(
-        currentUser.id,
-        purchaseFilmId,
-        purchaseTier.toLowerCase() as any,
-        price
-      );
-      setCurrentUser(updatedUser);
+      const newBalance = await refreshCCBalance(currentUser.id);
+      setCurrentUser({ ...currentUser, credit_balance: newBalance });
     } catch (err) {
       console.error("[App] Purchase failed:", err);
+    }
+  };
+
+  const handleCreateProposal = async (title: string, desc: string, type: string, deadline: string) => {
+    if (!currentUser) return null;
+    try {
+      const updatedUserRes = await createProposal(currentUser.id, title, desc, type, deadline);
+      setCurrentUser({ ...currentUser, credit_balance: cineCredits - 100 });
+      alert("Proposal submitted! 100 CC deducted.");
+      return updatedUserRes;
+    } catch (err: any) {
+      console.error("[App] Proposal creation failed:", err);
+      alert(err.message || "Failed to create proposal");
+      throw err;
+    }
+  };
+
+  const handleMarketPurchase = async (listingId: string, price: number) => {
+    if (!currentUser) return;
+    try {
+      const updatedUser = await purchaseMarketListing(currentUser.id, listingId, price);
+      setCurrentUser(updatedUser);
+      alert(`Purchase confirmed! Token acquired for ${price} CC.`);
+    } catch (err: any) {
+      console.error("[App] Market purchase failed:", err);
+      alert(err.message || "Market purchase failed");
+      throw err;
     }
   };
 
@@ -158,7 +184,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col relative selection:bg-primary selection:text-white">
-      <GrainOverlay />
+      {activeVideo ? (
+        <VideoPlayerScreen 
+          filmTitle={activeVideo.title} 
+          videoUrl={activeVideo.url} 
+          onBack={() => setActiveVideo(null)} 
+        />
+      ) : (
+        <>
+          <GrainOverlay />
 
       {showWalletModal && (
         <WalletConnectModal
@@ -170,6 +204,7 @@ export default function App() {
 
       {purchaseFilmId !== null && (
         <TokenPurchaseFlow
+          userId={currentUser?.id || ""}
           filmId={purchaseFilmId}
           tierName={purchaseTier}
           price={purchasePrice}
@@ -225,6 +260,7 @@ export default function App() {
             onConnect={() => setShowWalletModal(true)}
             onSubscribe={handleSubscribe}
             cineCredits={cineCredits}
+            onPlay={(title, url) => setActiveVideo({ title, url })}
           />
         )}
         {currentView === "community" && (
@@ -237,17 +273,28 @@ export default function App() {
           <StudioScreen setView={navigate} currentUser={currentUser} />
         )}
         {currentView === "governance" && (
-          <GovernanceScreen cineBalance={cineCredits} currentUser={currentUser} onConnect={() => setShowWalletModal(true)} />
+          <GovernanceScreen 
+            cineBalance={cineCredits} 
+            currentUser={currentUser} 
+            onConnect={() => setShowWalletModal(true)} 
+            onCreateProposal={handleCreateProposal}
+          />
         )}
         {currentView === "market" && (
-          <MarketScreen cineCredits={cineCredits} setView={navigate} selectedMarketItem={selectedMarketItem} currentUser={currentUser} />
+          <MarketScreen 
+            cineCredits={cineCredits} 
+            setView={navigate} 
+            selectedMarketItem={selectedMarketItem} 
+            currentUser={currentUser} 
+            onPurchase={handleMarketPurchase} 
+          />
         )}
         {currentView === "piracy" && (
           <PiracyScreen setView={navigate} />
         )}
         {currentView === "curator" && (
           <CuratorProfileScreen
-            curatorHandle={selectedCuratorHandle}
+            curatorHandle={selectedCurator}
             setView={navigate}
           />
         )}
@@ -267,6 +314,8 @@ export default function App() {
             <p className="font-headline font-black uppercase tracking-widest text-on-surface-variant">CineChain</p>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

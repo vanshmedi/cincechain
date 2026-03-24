@@ -1,33 +1,32 @@
 import { useState, useEffect } from "react";
 import { Polaroid } from "../components/ui/Polaroid";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
-import { Hexagon, Lock, ShoppingBag, Tag, CheckCircle2, Wallet, CreditCard, LogIn } from "lucide-react";
+import { Hexagon, Lock, ShoppingBag, Tag, CheckCircle2, Wallet, CreditCard, LogIn, Play } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import type { DbUser } from "../lib/supabase";
-import { getUserActiveListings, createMarketListing, cancelMarketListing, subscribeToCinePass } from "../lib/auth";
+import { getUserActiveListings, createMarketListing, subscribeToCinePass, fetchUserOwnedFilms, fetchUserTransactions } from "../lib/auth";
 
 interface VaultScreenProps {
   setView: (view: string, filmId?: string, curatorHandle?: string, marketItemId?: number) => void;
   currentUser: DbUser | null;
   onConnect: () => void;
   onSubscribe: (tier: string, bonus: number) => void;
+  onPlay: (title: string, videoUrl: string) => void;
   cineCredits: number;
 }
 
 type VaultTab = "collection" | "cinepass";
 
-const collection = [
-  { id: 1, title: "Neon Dreams", subtitle: "Collector Token #042", image: "https://picsum.photos/seed/film1/400/300", rotation: "-rotate-2", tokenType: "Collector" },
-  { id: 2, title: "The Last Heist", subtitle: "Ownership Token #118", image: "https://picsum.photos/seed/film2/400/300", rotation: "rotate-3", tokenType: "Ownership" },
-  { id: 3, title: "Concrete Jungle", subtitle: "Collector Token #005", image: "https://picsum.photos/seed/film6/400/300", rotation: "-rotate-1", tokenType: "Collector" },
-];
-
-const transactions = [
-  { date: "2026-03-20", type: "Mint", asset: "Neon Dreams — Collector #042", amount: "-4,000 CC", usd: "$400", status: "Confirmed" },
-  { date: "2026-02-15", type: "Royalty", asset: "The Last Heist — Ownership #118", amount: "+120 CC", usd: "$12", status: "Claimed" },
-  { date: "2026-01-08", type: "Mint", asset: "Concrete Jungle — Collector #005", amount: "-1,500 CC", usd: "$150", status: "Confirmed" },
-  { date: "2025-12-20", type: "Transfer", asset: "Whispers in the Dark — Rental #088", amount: "0 CC", usd: "$0", status: "Sent" },
-];
+export interface CollectionItem {
+  id: number | string;
+  sessionId?: number | string;
+  title: string;
+  subtitle: string;
+  image: string;
+  rotation: string;
+  tokenType: string;
+  videoUrl: string;
+}
 
 // CinePass tiers matching PRD: Standard ($12/80cc), Plus ($22/180cc), Collector ($45/420cc + free token)
 const cinePassTiers = [
@@ -82,7 +81,7 @@ const cinePassTiers = [
 ];
 
 // Listing modal
-function ListingModal({ item, onClose, onList }: { item: typeof collection[0]; onClose: () => void; onList: (price: number, desc: string) => void }) {
+function ListingModal({ item, onClose, onList }: { item: CollectionItem; onClose: () => void; onList: (price: number, desc: string) => void }) {
   const [price, setPrice] = useState("");
   const [desc, setDesc] = useState("");
   return (
@@ -124,26 +123,37 @@ function ListingModal({ item, onClose, onList }: { item: typeof collection[0]; o
   );
 }
 
-export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cineCredits }: VaultScreenProps) {
+export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, onPlay, cineCredits }: VaultScreenProps) {
   const [activeTab, setActiveTab] = useState<VaultTab>("collection");
   const [activeListings, setActiveListings] = useState<Record<string, boolean>>({});
-  const [listingItem, setListingItem] = useState<typeof collection[0] | null>(null);
+  const [listingItem, setListingItem] = useState<CollectionItem | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [ownedFilms, setOwnedFilms] = useState<CollectionItem[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
-      loadActiveListings();
+      loadUserData();
     }
   }, [currentUser]);
 
-  const loadActiveListings = async () => {
+  const loadUserData = async () => {
     if (!currentUser) return;
+    setIsLoading(true);
     try {
-      const listings = await getUserActiveListings(currentUser.id);
+      const [films, listings, txs] = await Promise.all([
+        fetchUserOwnedFilms(currentUser.id),
+        getUserActiveListings(currentUser.id),
+        fetchUserTransactions(currentUser.id)
+      ]);
+      setOwnedFilms(films);
+      setTransactions(txs);
+      
       const listed: Record<string, boolean> = {};
       listings.forEach(l => {
         // Match by film title
-        collection.forEach(c => {
+        films.forEach(c => {
           if (c.title === l.film_title) {
             listed[c.id.toString()] = true;
           }
@@ -151,7 +161,9 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
       });
       setActiveListings(listed);
     } catch (err) {
-      console.error("Failed to load listings:", err);
+      console.error("Failed to load user vault data:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -252,14 +264,25 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
             <div className="flex justify-between items-end mb-12 border-b-2 border-on-surface pb-4">
               <h2 className="text-4xl font-headline font-black uppercase tracking-tighter">Your Collection</h2>
               <span className="font-label text-sm uppercase tracking-widest text-on-surface-variant font-bold">
-                {collection.length} Assets
+                {ownedFilms.length} Assets
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
-              {collection.map((item) => {
-                const isListed = activeListings[item.id.toString()];
-                return (
+            {isLoading ? (
+              <div className="text-center py-12 text-on-surface-variant font-label uppercase tracking-widest animate-pulse">
+                Decrypting your portfolio...
+              </div>
+            ) : ownedFilms.length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed border-outline-variant bg-surface-container-lowest">
+                <p className="font-headline text-xl text-on-surface mb-2 font-bold uppercase tracking-tight">Your vault is empty</p>
+                <p className="font-body text-surface-variant mb-6">Invest in films to build your decentralized collection.</p>
+                <Button onClick={() => setView("gallery")} variant="outline">Browse Gallery</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
+                {ownedFilms.map((item) => {
+                  const isListed = activeListings[item.id.toString()];
+                  return (
                   <div key={item.id} className={`transform ${item.rotation} relative cursor-pointer group`}>
                     <Polaroid
                       imageUrl={item.image}
@@ -279,10 +302,14 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
                         Listed for Sale
                       </div>
                     )}
-                    {/* Hover: list on market */}
-                    <div className="absolute inset-0 bg-on-surface/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 mx-2 mb-8">
+                    {/* Hover: list on market & play */}
+                    <div className="absolute inset-0 bg-on-surface/80 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 mx-2 mb-8 gap-4 pb-4">
+                      <Button size="lg" className="rounded-full w-14 h-14 p-0 flex items-center justify-center bg-white text-on-surface hover:bg-surface-container-high transition-colors shadow-lg" onClick={() => onPlay(item.title, item.videoUrl)}>
+                        <Play className="h-6 w-6 ml-1" fill="currentColor" />
+                      </Button>
+                      
                       {isListed ? (
-                        <Button size="sm" variant="outline" className="border-white text-white hover:bg-white hover:text-on-surface" onClick={() => {
+                        <Button size="sm" variant="outline" className="border-white text-white hover:bg-white hover:text-on-surface w-3/4" onClick={() => {
                           alert("Item delisted! (To delist from DB, navigate to Market page)");
                           setActiveListings(prev => {
                             const copy = { ...prev };
@@ -293,7 +320,7 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
                           Delist
                         </Button>
                       ) : (
-                        <Button size="sm" onClick={() => currentUser ? setListingItem(item) : onConnect()}>
+                        <Button size="sm" variant="outline" className="border-white text-white hover:bg-white hover:text-on-surface w-3/4 bg-transparent" onClick={() => currentUser ? setListingItem(item) : onConnect()}>
                           List on Market
                         </Button>
                       )}
@@ -302,6 +329,7 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
                 );
               })}
             </div>
+            )}
           </section>
 
           {/* Transaction Ledger */}
@@ -326,7 +354,11 @@ export function VaultScreen({ setView, currentUser, onConnect, onSubscribe, cine
                   </tr>
                 </thead>
                 <tbody className="font-body text-sm">
-                  {transactions.map((tx, i) => (
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-on-surface-variant italic">No valid transactions found. Make a purchase via the gallery to log an entry here.</td>
+                    </tr>
+                  ) : transactions.map((tx, i) => (
                     <tr key={i} className="border-b border-outline-variant/50 hover:bg-surface-container-low transition-colors">
                       <td className="p-4 text-on-surface-variant font-mono">{tx.date}</td>
                       <td className="p-4">

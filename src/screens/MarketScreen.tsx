@@ -10,9 +10,10 @@ interface MarketScreenProps {
   setView: (view: string, filmId?: string, curatorHandle?: string) => void;
   selectedMarketItem: number | null;
   currentUser: DbUser | null;
+  onPurchase: (listingId: string, price: number) => Promise<void>;
 }
 
-export function MarketScreen({ cineCredits, setView, selectedMarketItem, currentUser }: MarketScreenProps) {
+export function MarketScreen({ cineCredits, setView, selectedMarketItem, currentUser, onPurchase }: MarketScreenProps) {
   const [filter, setFilter] = useState<"All" | "Rental" | "Ownership" | "Collector">("All");
   const [dbListings, setDbListings] = useState<DbMarketListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +46,7 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
     }
   };
 
-  const handleBuyDbListing = (listing: DbMarketListing) => {
+  const handleBuyDbListing = async (listing: DbMarketListing) => {
     if (!currentUser) {
       alert("Connect your wallet to purchase.");
       return;
@@ -58,8 +59,12 @@ export function MarketScreen({ cineCredits, setView, selectedMarketItem, current
       alert(`Insufficient CC. You need ${listing.ask_price} CC but have ${cineCredits} CC.`);
       return;
     }
-    alert(`Purchase confirmed! ${listing.film_title} — ${listing.token_type} acquired for ${listing.ask_price} CC.`);
-    setDbListings(prev => prev.filter(l => l.id !== listing.id));
+    try {
+      await onPurchase(listing.id, listing.ask_price);
+      setDbListings(prev => prev.filter(l => l.id !== listing.id));
+    } catch (err) {
+      // Error handled partially by App.tsx, but we can prevent local state change on fail
+    }
   };
 
   const filteredDbListings = dbListings.filter(
