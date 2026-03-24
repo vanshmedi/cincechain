@@ -183,12 +183,9 @@ interface FilmUploadData {
 }
 
 export async function uploadFilm(filmData: FilmUploadData): Promise<DbFilm> {
-  const contentId = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-  
   const { data, error } = await supabase
     .from("films")
     .insert({
-      content_id: contentId,
       filmmaker_id: filmData.filmakerId ?? null,
       title: filmData.title ?? "Untitled",
       description: filmData.description ?? "",

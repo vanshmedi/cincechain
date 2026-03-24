@@ -4,7 +4,7 @@
 // in the PostgreSQL database (row-level lock, then blockchain call).
 
 import { ethers } from "ethers";
-import { uploadMetadataToIPFS } from "./ipfs.js";
+// Bypassed IPFS import
 
 // ── ABI (minimal — only functions we call) ───────────────────────────────────
 
@@ -120,8 +120,8 @@ export async function registerFilm(filmData) {
       { trait_type: "Platform",   value: "CineChain" },
     ],
   };
-  const metadataUri = await uploadMetadataToIPFS(metadata);
-  console.log("[blockchain] Metadata pinned:", metadataUri);
+  const metadataUri = `data:application/json;base64,${Buffer.from(JSON.stringify(metadata)).toString("base64")}`;
+  console.log("[blockchain] Metadata generated inline (IPFS bypassed)");
 
   // 2. Call registerFilm on-chain
   const tx = await _contract.registerFilm(
