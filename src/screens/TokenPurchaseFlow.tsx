@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button";
 import { RainbowStripe } from "../components/ui/RainbowStripe";
 import { CheckCircle2, Sparkles, Wallet, X } from "lucide-react";
-import { type DbFilm } from "../lib/supabase";
+import { supabase, type DbFilm } from "../lib/supabase";
 import { fetchDbFilmById } from "../lib/auth";
 
 interface TokenPurchaseFlowProps {
@@ -26,6 +26,7 @@ export function TokenPurchaseFlow({
 }: TokenPurchaseFlowProps) {
   const [film, setFilm] = useState<DbFilm | null>(null);
   const [step, setStep] = useState<"loading" | "confirm" | "processing" | "done">("loading");
+  const [mintData, setMintData] = useState<{ txHash?: string, tokenId?: string, error?: string } | null>(null);
 
   useEffect(() => {
     fetchDbFilmById(filmId).then((data) => {
@@ -43,10 +44,29 @@ export function TokenPurchaseFlow({
 
   const handleMint = async () => {
     setStep("processing");
-    // Simulate chain confirmation delay
-    await new Promise((r) => setTimeout(r, 1800));
-    setStep("done");
-    onConfirm(price);
+    setMintData(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error("Not logged in");
+
+      const response = await fetch(`/api/films/${filmId}/purchase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: tierName.toLowerCase(), userId })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Purchase failed");
+      }
+      setMintData({ txHash: result.txHash, tokenId: result.tokenId });
+      setStep("done");
+      onConfirm(price);
+    } catch (err: any) {
+      setMintData({ error: err.message });
+      setStep("confirm");
+    }
   };
 
   return (
@@ -138,6 +158,13 @@ export function TokenPurchaseFlow({
           </div>
         )}
 
+        {step === "confirm" && mintData?.error && (
+          <div className="px-8 pb-4 text-center">
+            <p className="text-error font-bold mb-2">Transaction Failed</p>
+            <p className="text-on-surface-variant text-sm border border-error/50 bg-error/10 p-2 rounded">{mintData.error}</p>
+          </div>
+        )}
+
         {step === "done" && film && (
           <div className="p-8 pt-10">
             <div className="text-center mb-8">
@@ -151,6 +178,9 @@ export function TokenPurchaseFlow({
                 Your <strong>{tierName}</strong> token for{" "}
                 <strong>{film.title}</strong> is now in your Vault.
               </p>
+              {mintData?.txHash && (
+                <p className="font-mono text-xs text-primary mt-2">Tx: {mintData.txHash.substring(0, 16)}...</p>
+              )}
             </div>
 
             <div className="bg-on-surface text-surface-container-lowest p-6 relative overflow-hidden mb-6">
